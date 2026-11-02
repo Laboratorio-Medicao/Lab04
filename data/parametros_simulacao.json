@@ -1,0 +1,118 @@
+{
+  "fonte": "data/dados_reais.csv",
+  "limiar_rapido_h": 1.0,
+  "semente": 42,
+  "n": {
+    "com_bot": 60,
+    "sem_bot": 320
+  },
+  "descritivas": {
+    "com_bot": {
+      "minimo": 0.0433,
+      "mediana": 0.7713,
+      "media": 19.5244,
+      "maximo": 295.4825,
+      "desvio": 47.1047,
+      "assimetria": 3.8795
+    },
+    "sem_bot": {
+      "minimo": 0.0019,
+      "mediana": 1.0652,
+      "media": 153.0602,
+      "maximo": 5234.0858,
+      "desvio": 530.112,
+      "assimetria": 6.3245
+    }
+  },
+  "mistura": {
+    "com_bot": {
+      "p_rapido": 0.5833,
+      "mu_rapido": -1.4552,
+      "sigma_rapido": 0.9989,
+      "mu_lento": 2.7138,
+      "sigma_lento": 1.6995
+    },
+    "sem_bot": {
+      "p_rapido": 0.4938,
+      "mu_rapido": -2.4608,
+      "sigma_rapido": 1.0609,
+      "mu_lento": 3.7884,
+      "sigma_lento": 2.2031
+    },
+    "h0": {
+      "p_rapido": 0.5079,
+      "mu_rapido": -2.2785,
+      "sigma_rapido": 1.1191,
+      "mu_lento": 3.6447,
+      "sigma_lento": 2.1736
+    }
+  },
+  "comparacao": {
+    "com_bot": {
+      "real": {
+        "q25": 0.1498,
+        "mediana": 0.7713,
+        "q75": 4.4458,
+        "q90": 51.1207,
+        "media": 19.5244,
+        "maximo": 295.4825
+      },
+      "lognormal": {
+        "q25": 0.2654,
+        "mediana": 1.3235,
+        "q75": 6.6399,
+        "q90": 27.207,
+        "media": 16.9284,
+        "maximo": 354.7958
+      },
+      "mistura": {
+        "q25": 0.1967,
+        "mediana": 0.6157,
+        "q75": 9.2787,
+        "q90": 44.365,
+        "media": 21.4606,
+        "maximo": 390.9221
+      }
+    },
+    "sem_bot": {
+      "real": {
+        "q25": 0.0672,
+        "mediana": 1.0652,
+        "q75": 52.5216,
+        "q90": 336.7604,
+        "media": 153.0602,
+        "maximo": 5234.0858
+      },
+      "lognormal": {
+        "q25": 0.1844,
+        "mediana": 2.0231,
+        "q75": 22.324,
+        "q90": 191.332,
+        "media": 439.7069,
+        "maximo": 52700.2388
+      },
+      "mistura": {
+        "q25": 0.0868,
+        "mediana": 0.7533,
+        "q75": 44.7291,
+        "q90": 280.6821,
+        "media": 211.4755,
+        "maximo": 14744.1648
+      }
+    }
+  },
+  "simulacao": {
+    "base": "mistura.h0",
+    "n": {
+      "com_bot": 60,
+      "sem_bot": 320
+    },
+    "sinais_delta": [
+      -1,
+      1
+    ],
+    "sigma_log_h0": 3.4249
+  },
+  "delta_log_observado": -0.421,
+  "delta_padronizado": -0.1229
+}

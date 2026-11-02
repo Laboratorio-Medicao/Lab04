@@ -47,17 +47,36 @@ conforme a implementação final.
 python src/coletar_dados.py
 ```
 
-Dados salvos em `data/dados_reais.csv` (70 observações: 35 por grupo).  
+Dados salvos em `data/dados_reais.csv` (380 observações: 60 `com_bot` e 320 `sem_bot`).  
 Veja [`docs/cenario.md`](docs/cenario.md) para detalhes da fonte e parâmetros da simulação.
+
+---
+
+## Parâmetros da simulação
+
+```bash
+python src/estimar_parametros.py
+```
+
+Parâmetros salvos em `data/parametros_simulacao.json`, derivados de `data/dados_reais.csv`.
+
+---
+
+## Testes
+
+```bash
+python -m pytest
+```
 
 ---
 
 ## Estrutura do repositório
 
 ```
-data/           dados reais coletados (CSV)
+data/           dados reais coletados (CSV) e parâmetros da simulação (JSON)
 docs/           cenário, kanban snapshots e apresentação
 src/            código de coleta, simulação e testes
+tests/          testes automatizados (pytest)
 dashboard.py    dashboard interativo (entrega final)
 requirements.txt
 ```
