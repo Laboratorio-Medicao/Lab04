@@ -46,6 +46,11 @@ def test_cenario_nao_guarda_numeros_antigos():
     assert "487,5" not in CENARIO and "(0,3h" not in CENARIO
 
 
+def test_cenario_define_a_estatistica_do_valor_critico():
+    assert "`t` com sinal" in CENARIO
+    assert "`U` do grupo bot" in CENARIO
+
+
 def test_hipotese_inicial_preserva_o_texto_original():
     assert "com n=35 por grupo a aproximação pode ser insuficiente" in CENARIO
     assert "Nota de 20" in CENARIO

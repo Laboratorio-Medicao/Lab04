@@ -26,6 +26,23 @@ def test_ajustar_mistura_rejeita_regime_com_menos_de_duas_observacoes():
         ep.ajustar_mistura(np.array([0.5, 0.2, 0.3, 4.0]))
 
 
+def test_ajustar_mistura_rejeita_tempo_ausente():
+    with pytest.raises(ValueError, match="positiv"):
+        ep.ajustar_mistura(np.array([np.nan, 0.5, 0.2, 3.0, 4.0]))
+
+
+def test_ajustar_mistura_rejeita_regime_sem_variacao():
+    with pytest.raises(ValueError, match="regime"):
+        ep.ajustar_mistura(np.array([0.5, 0.5, 3.0, 4.0]))
+
+
+def test_estimar_rejeita_grupo_sem_observacoes(tmp_path):
+    csv = tmp_path / "d.csv"
+    pd.DataFrame({"grupo": ["com_bot"] * 6, "horas_ate_merge": list(HORAS)}).to_csv(csv, index=False)
+    with pytest.raises(ValueError, match="grupo"):
+        ep.estimar(str(csv))
+
+
 def test_ajustar_lognormal_usa_media_e_desvio_do_log():
     p = ep.ajustar_lognormal(HORAS)
     assert p["mu"] == pytest.approx(np.log(HORAS).mean())

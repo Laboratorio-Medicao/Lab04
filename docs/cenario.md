@@ -109,6 +109,8 @@ Mostrar o tamanho empírico em δ = 0 ao lado do poder, e comparar os testes pel
 
 O valor crítico é um par por teste, com os quantis 2,5% e 97,5% da estatística sob H₀ (δ = 0). Rejeita-se fora desse intervalo. Não usar corte em |estatística|. O par é recalculado para cada situação e cada n.
 
+A estatística é, sempre na ordem bot × humano, o `t` com sinal no Welch e o `U` do grupo bot no Mann-Whitney. Não usar `min(U)`, porque o par de quantis perderia o sentido.
+
 Informar também o tamanho alcançado ao lado do poder ajustado, porque a estatística do Mann-Whitney é discreta e, com n pequeno, fica abaixo de 5%.
 
 ---

@@ -26,8 +26,8 @@ QUANTIS = {"q25": 0.25, "mediana": 0.5, "q75": 0.75, "q90": 0.9}
 
 
 def log_positivo(horas: np.ndarray) -> np.ndarray:
-    if (horas <= 0).any():
-        raise ValueError("Os tempos até o merge devem ser positivos")
+    if not (np.isfinite(horas) & (horas > 0)).all():
+        raise ValueError("Os tempos até o merge devem ser positivos e finitos")
     return np.log(horas)
 
 
@@ -36,6 +36,8 @@ def ajustar_mistura(horas: np.ndarray, limiar: float = LIMIAR_RAPIDO_H) -> dict:
     rapido = horas < limiar
     if rapido.sum() < 2 or (~rapido).sum() < 2:
         raise ValueError("Cada regime precisa de pelo menos duas observações")
+    if logs[rapido].std() == 0 or logs[~rapido].std() == 0:
+        raise ValueError("Cada regime precisa de tempos com alguma variação")
     return {
         "p_rapido": float(rapido.mean()),
         "mu_rapido": float(logs[rapido].mean()),
@@ -90,6 +92,8 @@ def estimar(caminho_csv: str, semente: int = SEMENTE) -> dict:
     dados = pd.read_csv(caminho_csv)
     bot = dados.loc[dados["grupo"] == "com_bot", "horas_ate_merge"].to_numpy()
     humano = dados.loc[dados["grupo"] == "sem_bot", "horas_ate_merge"].to_numpy()
+    if len(bot) == 0 or len(humano) == 0:
+        raise ValueError("Cada grupo precisa de observações no CSV")
     combinado = np.concatenate([bot, humano])
 
     rng = np.random.default_rng(semente)
