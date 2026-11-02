@@ -154,3 +154,20 @@ def test_figura_g1_nao_desenha_contorno_em_faixa_vazia():
 def test_figura_g1_separa_os_rotulos_dos_paineis():
     f = gr.figura_g1(AMOSTRAS)
     assert f.layout.xaxis2.domain[0] - f.layout.xaxis.domain[1] >= 0.08
+
+
+def test_amostras_g1_rejeitam_grupo_sem_observacoes():
+    with pytest.raises(ValueError, match="sem_bot"):
+        gr.amostras_g1(DADOS[DADOS["grupo"] == "com_bot"], PARAMETROS)
+
+
+def test_amostras_g1_rejeitam_tempo_nao_numerico():
+    dados = DADOS.astype({"horas_ate_merge": object})
+    dados.loc[0, "horas_ate_merge"] = "abc"
+    with pytest.raises(ValueError, match="positiv"):
+        gr.amostras_g1(dados, PARAMETROS)
+
+
+def test_amostras_g1_rejeitam_coluna_ausente():
+    with pytest.raises(ValueError, match="horas_ate_merge"):
+        gr.amostras_g1(DADOS.drop(columns="horas_ate_merge"), PARAMETROS)

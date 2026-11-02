@@ -37,6 +37,16 @@ N_SIMULADO_G1 = 10_000
 OPACIDADE_SIMULADO = 0.3
 
 
+def horas_do_grupo(dados: pd.DataFrame, grupo: str) -> np.ndarray:
+    if "horas_ate_merge" not in dados.columns:
+        raise ValueError("O CSV precisa da coluna horas_ate_merge")
+    horas = pd.to_numeric(dados.loc[dados["grupo"] == grupo, "horas_ate_merge"], errors="coerce")
+    if horas.empty:
+        raise ValueError(f"O grupo {grupo} não tem observações no CSV")
+    log_positivo(horas.to_numpy(dtype=float))
+    return horas.to_numpy(dtype=float)
+
+
 def amostras_g1(
     dados: pd.DataFrame,
     parametros: dict,
@@ -47,7 +57,7 @@ def amostras_g1(
     amostras = {}
     for grupo in GRUPOS:
         amostras[grupo] = {
-            "real": dados.loc[dados["grupo"] == grupo, "horas_ate_merge"].to_numpy(),
+            "real": horas_do_grupo(dados, grupo),
             "simulado": amostrar_mistura(parametros["mistura"][grupo], (n_simulado,), rng),
         }
     return amostras

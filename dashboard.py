@@ -34,8 +34,9 @@ def texto_g1(parametros: dict) -> str:
         f"Cerca de {bot}% dos PRs do Dependabot e {humano}% dos PRs humanos são mergeados em menos "
         "de 1 hora, e os demais levam de horas a dias no Dependabot e de horas a meses nos humanos. "
         f"Por isso, os dados são muito assimétricos, com outliers de até {maximo} horas. "
-        "A simulação usa uma mistura de duas lognormais, uma para cada regime, porque uma lognormal "
-        "única exagerava a média e o máximo do grupo humano. "
+        "A simulação usa uma mistura de duas lognormais, com média e desvio de ln(T) calculados em "
+        "cada regime, separados em 1 hora, porque uma lognormal única exagerava a média e o máximo "
+        "do grupo humano. "
         "A mistura reproduz a forma geral dos dados reais, mas ainda gera uma cauda mais pesada que "
         "a observada, sobretudo no grupo humano."
     )
@@ -48,9 +49,12 @@ def secao_1() -> None:
 
 def secao_2() -> None:
     st.header("2. Os dados")
-    dados = pd.read_csv(RAIZ / "data" / "dados_reais.csv")
     parametros = carregar_parametros()
-    amostras = amostras_g1(dados, parametros)
+    try:
+        amostras = amostras_g1(pd.read_csv(RAIZ / "data" / "dados_reais.csv"), parametros)
+    except (ValueError, OSError) as erro:
+        st.error(f"Não foi possível montar o G1 com data/dados_reais.csv: {erro}")
+        return
     st.plotly_chart(figura_g1(amostras), theme=None, width="stretch")
     st.caption("Cada grupo simulado tem 10.000 sorteios da mistura do próprio grupo, com semente fixa 42.")
     st.write(texto_g1(parametros))

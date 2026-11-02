@@ -4,6 +4,7 @@ import tomllib
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
 
@@ -58,7 +59,7 @@ def test_dashboard_abre_fora_da_raiz(tmp_path, monkeypatch):
 def test_texto_g1_tem_ate_quatro_frases_com_dados_reais():
     texto = dashboard.texto_g1(carregar_parametros())
     assert 2 <= len(re.findall(r"[.!?](?:\s|$)", texto)) <= 4
-    for trecho in ("58%", "49%", "5.234", "mistura de duas lognormais"):
+    for trecho in ("58%", "49%", "5.234", "mistura de duas lognormais", "ln(T)", "separados em 1 hora"):
         assert trecho in texto
 
 
@@ -85,3 +86,13 @@ def test_tema_claro_fixo():
     assert config["theme"]["base"] == "light"
     assert config["server"]["headless"] is True
     assert config["browser"]["gatherUsageStats"] is False
+
+
+def test_erro_nos_dados_aparece_na_secao_2_sem_derrubar_as_demais():
+    invalidos = pd.DataFrame({"grupo": ["com_bot", "sem_bot"], "horas_ate_merge": [0.0, 1.0]})
+    with patch.object(pd, "read_csv", return_value=invalidos):
+        at = abrir()
+    assert not at.exception
+    assert [h.value for h in at.header] == SECOES
+    assert len(at.error) == 1 and "data/dados_reais.csv" in at.error[0].value
+    assert not [i for i in secao(at, "2. Os dados") if i.type == "plotly_chart"]
