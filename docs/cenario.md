@@ -36,7 +36,7 @@ Os dois testes são aplicados ao tempo em horas, sem transformação em log.
 - **Repositório:** [`pallets/flask`](https://github.com/pallets/flask)
 - **API:** GitHub GraphQL API — campos `mergedAt`, `createdAt` e `author` de `PullRequest`
 - **Data de coleta:** 2026-11-02
-- **Janela:** PRs criados de 2021-04-28 a 2024-08-01 nos dois grupos. É todo o período de atividade do Dependabot no repositório, o que evita comparar grupos de épocas diferentes.
+- **Janela:** PRs criados de 2021-04-28 a 2024-08-01 nos dois grupos. É todo o período de atividade do Dependabot no repositório, o que reduz a comparação entre grupos de épocas diferentes.
 - **Critério de seleção:** todos os PRs merged da janela, sem subamostragem.
   - **com_bot:** PRs com `author:app/dependabot`.
   - **sem_bot:** PRs com autor do tipo `User` na API. Ficam de fora 25 PRs de `pre-commit-ci`, 1 de `dependabot-preview` e 1 sem autor.
@@ -66,7 +66,7 @@ O arquivo `data/parametros_simulacao.json` é a **fonte única** dos parâmetros
 
 ### Modelo
 
-Cada grupo é modelado como uma **mistura de duas lognormais**, com os PRs separados em 1 hora. Um PR cai no regime rápido com probabilidade `p_rápido` e, nesse caso, `ln(T) ~ N(μ_rápido, σ_rápido²)`. Caso contrário, `ln(T) ~ N(μ_lento, σ_lento²)`. Os valores são MLE condicional ao regime: média e desvio de `ln(T)` dentro de cada regime.
+Cada grupo é modelado como uma **mistura de duas lognormais**, com os PRs separados em 1 hora. Um PR cai no regime rápido com probabilidade `p_rápido` e, nesse caso, `ln(T) ~ N(μ_rápido, σ_rápido²)`. Caso contrário, `ln(T) ~ N(μ_lento, σ_lento²)`. Os valores são MLE condicional ao regime: média e desvio de `ln(T)` dentro de cada regime. Para sortear desse modelo, use `amostrar_mistura` de `src/estimar_parametros.py`.
 
 | Parâmetro | com_bot | sem_bot | h0 (dados combinados) |
 |-----------|---------|---------|-----------------------|
@@ -99,7 +99,7 @@ Esta é a **situação base**, não uma "situação normal": os dados simulados 
 - **H₀ verdadeira:** os dois grupos são sorteados de forma independente de `mistura.h0`.
 - **H₁ verdadeira:** `T_humano ~ mistura.h0` e `T_bot = e^δ · T`, com `T ~ mistura.h0` sorteado de forma independente. Esse deslocamento torna falsas as duas H₀ ao mesmo tempo.
 - **Sinais de δ:** avaliar +δ e −δ, coerente com o teste bicaudal.
-- **Tamanho de efeito padronizado:** `d = δ / σ_log_h0`, com `σ_log_h0` = 3,42 (desvio de `ln(T)` nos dados combinados).
+- **Tamanho de efeito padronizado:** `d = δ / σ_log_h0`, com `σ_log_h0` = 3,42 (desvio de `ln(T)` nos dados combinados). Esse `d` não é o d de Cohen: `σ_log_h0` inclui a separação entre os regimes, então as faixas usuais de pequeno, médio e grande não se aplicam.
 - **Referência de escala:** nos dados reais, δ observado = −0,42 e d observado = −0,12. Esses valores servem só como referência de escala, porque o deslocamento é uma simplificação: a diferença real entre os grupos não é um deslocamento puro.
 - **Papel de cada bloco do JSON:** `mistura.com_bot` e `mistura.sem_bot` servem ao G1 (#7), que compara cada grupo real com a mistura do próprio grupo. Q1, Q2 e Q3 usam `mistura.h0` como configuração principal.
 
@@ -133,7 +133,7 @@ Nota de 2026-11-02: texto escrito antes da recoleta. A amostra passou a n=60 e n
 
 - **Concentração em um autor:** 135 dos 320 PRs humanos são de `davidism`, e 93% dos PRs dessa pessoa ficam abaixo de 1 hora, contra 17% dos outros humanos. O regime rápido está ligado ao autor.
 - **Observações não totalmente independentes:** PRs do Dependabot chegam em lotes, e 14 dos 60 foram mergeados no mesmo minuto de outro PR do grupo.
-- **Seleção por PRs merged:** a amostra ignora os PRs fechados sem merge, que são 47 de 107 no Dependabot e 243 de 590 nos demais.
+- **Seleção por PRs merged:** a amostra ignora os PRs fechados sem merge, que são 47 de 107 no Dependabot e 237 de 557 nos humanos.
 - **Períodos ainda misturados:** mesmo com a janela comum, 65% dos PRs `com_bot` são de 2023–2024, contra 31% dos `sem_bot`.
 - **Limiar de 1 hora:** é uma escolha do grupo.
-- **Cauda simulada mais pesada que a real:** o máximo simulado de `sem_bot` passa do real, o que tende a prejudicar o t de Welch, justamente o teste que a expectativa inicial aponta como pior. Por isso, #13 e #14 devem incluir uma sensibilidade com reamostragem ou truncamento.
+- **Cauda simulada mais pesada que a real:** a média teórica de `mistura.h0` é cerca de 200 h, contra 132 h nos dados combinados, e o máximo simulado de `sem_bot` passa do real. Isso tende a prejudicar o t de Welch, justamente o teste que a expectativa inicial aponta como pior. Por isso, #13 e #14 devem incluir uma sensibilidade com reamostragem ou truncamento.

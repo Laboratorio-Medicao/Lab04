@@ -51,6 +51,21 @@ def test_cenario_define_a_estatistica_do_valor_critico():
     assert "`U` do grupo bot" in CENARIO
 
 
+def test_limitacoes_usam_o_criterio_do_grupo_humano():
+    assert "237 de 557" in CENARIO
+    assert "243 de 590" not in CENARIO
+
+
+def test_janela_nao_promete_eliminar_a_diferenca_de_epocas():
+    assert "o que evita comparar" not in CENARIO
+
+
+def test_cenario_orienta_os_proximos_cards():
+    assert "amostrar_mistura" in CENARIO
+    assert "não é o d de Cohen" in CENARIO
+    assert "média teórica de `mistura.h0`" in CENARIO
+
+
 def test_hipotese_inicial_preserva_o_texto_original():
     assert "com n=35 por grupo a aproximação pode ser insuficiente" in CENARIO
     assert "Nota de 20" in CENARIO
