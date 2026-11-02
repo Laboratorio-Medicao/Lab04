@@ -54,7 +54,7 @@ Os dois testes são aplicados ao tempo em horas, sem transformação em log.
 
 Os dados são **fortemente assimétricos à direita** (right-skewed) em ambos os grupos, e a observação mais importante é que eles se dividem em **dois regimes**:
 - **Regime rápido:** 58% dos PRs do Dependabot e 49% dos PRs humanos são merged em menos de 1 hora.
-- **Regime lento:** os demais se espalham por dias ou meses, com valores extremos de centenas ou milhares de horas.
+- **Regime lento:** os demais levam de horas a dias no Dependabot e de horas a meses nos humanos, com valores extremos de centenas ou milhares de horas.
 - A diferença entre mediana e média é enorme, especialmente no grupo `sem_bot` (1,07 h de mediana e 153,06 h de média).
 - Isso é típico de dados de tempo (duração) em engenharia de software e viola a suposição de normalidade do t de Welch.
 

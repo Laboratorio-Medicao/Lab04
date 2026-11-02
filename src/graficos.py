@@ -100,22 +100,23 @@ def figura_g1(amostras: dict) -> go.Figure:
     decadas = list(range(math.ceil(bordas[0]), math.floor(bordas[-1]) + 1))
 
     figura = make_subplots(
-        rows=1, cols=2, shared_yaxes=True, horizontal_spacing=0.04,
+        rows=1, cols=2, shared_yaxes=True, horizontal_spacing=0.08,
         subplot_titles=[f"{nome} (n={len(amostras[grupo]['real'])} reais)" for grupo, nome in GRUPOS.items()],
     )
     for coluna, (grupo, nome) in enumerate(GRUPOS.items(), start=1):
         cor = CORES[grupo]
-        marcadores = {
-            "real": ("real", {"color": cor}),
-            "simulado": ("simulado (modelo)", {
+        real = percentuais(amostras[grupo]["real"], bordas)
+        simulado = percentuais(amostras[grupo]["simulado"], bordas)
+        series = [
+            (f"{nome}: real", real, {"color": cor}),
+            (f"{nome}: simulado (modelo)", simulado, {
                 "color": com_opacidade(cor, OPACIDADE_SIMULADO),
-                "line": {"color": cor, "width": 1.5},
+                "line": {"color": cor, "width": np.where(simulado > 0, 1.5, 0)},
             }),
-        }
-        for chave, (rotulo, marcador) in marcadores.items():
+        ]
+        for rotulo, valores, marcador in series:
             figura.add_trace(go.Bar(
-                x=centros, y=percentuais(amostras[grupo][chave], bordas),
-                name=f"{nome}: {rotulo}", marker=marcador, customdata=faixas,
+                x=centros, y=valores, name=rotulo, marker=marcador, customdata=faixas,
                 hovertemplate="%{customdata} h<br>%{y:.1f}% dos PRs<extra>%{fullData.name}</extra>",
             ), row=1, col=coluna)
 
@@ -127,14 +128,13 @@ def figura_g1(amostras: dict) -> go.Figure:
     )
     figura.update_xaxes(
         title_text="Tempo até o merge (horas, escala log)",
-        tickmode="array", tickvals=decadas, ticktext=[formatar_horas(10.0 ** d) for d in decadas],
+        tickmode="array", tickvals=decadas, tickangle=0, ticks="outside",
+        ticktext=[formatar_horas(10.0 ** d) if d % 2 == 0 else "" for d in decadas],
         range=[bordas[0], bordas[-1]], showgrid=False,
     )
     figura.update_yaxes(gridcolor=GRADE, zeroline=False)
     figura.update_yaxes(title_text="PRs do grupo (%)", row=1, col=1)
-    for coluna in (1, 2):
-        figura.add_vline(
-            x=0, line_dash="dot", line_color=TINTA, line_width=1, row=1, col=coluna,
-            annotation_text="1 h" if coluna == 1 else None,
-        )
+    limiar = {"x": 0, "line_dash": "dot", "line_color": TINTA, "line_width": 1, "row": 1}
+    figura.add_vline(col=1, annotation_text="1 h", **limiar)
+    figura.add_vline(col=2, **limiar)
     return figura

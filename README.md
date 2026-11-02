@@ -36,8 +36,8 @@ gh auth login   # ou exporte GITHUB_TOKEN
 python -m dashboard
 ```
 
-O dashboard abre em `http://localhost:8501` (Streamlit) ou gera `dashboard.html` (Plotly),
-conforme a implementação final.
+Execute na raiz do repositório. O dashboard fica disponível em `http://localhost:8501`. A URL
+também aparece no terminal, e o navegador não abre sozinho. Para encerrar, use `Ctrl+C`.
 
 ---
 
@@ -88,6 +88,8 @@ bot, humano = gerar(parametros, h1=True, d=0.3, n_bot=60, n_humano=320, rng=cria
 | `fator_sigma` | multiplica o desvio de ln(T): maior deixa a cauda mais pesada |
 | `rng` | gerador; por omissão, `default_rng(42)` |
 
+O G1 é a exceção: ele compara cada grupo real com a mistura do próprio grupo, em `graficos.amostras_g1`.
+
 ---
 
 ## Testes
@@ -105,6 +107,7 @@ data/           dados reais coletados (CSV) e parâmetros da simulação (JSON)
 docs/           cenário, kanban snapshots e apresentação
 src/            código de coleta, simulação e testes
 tests/          testes automatizados (pytest)
+.streamlit/     configuração do dashboard
 dashboard.py    dashboard interativo (entrega final)
 requirements.txt
 ```

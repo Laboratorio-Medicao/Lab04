@@ -121,7 +121,14 @@ def test_figura_g1_compartilha_as_escalas_entre_paineis():
 
 def test_figura_g1_marca_rotulos_em_horas():
     f = gr.figura_g1(AMOSTRAS)
-    assert "1" in f.layout.xaxis.ticktext and "1.000" in f.layout.xaxis.ticktext
+    assert "1" in f.layout.xaxis.ticktext and "100" in f.layout.xaxis.ticktext
+
+
+def test_figura_g1_mantem_rotulos_na_horizontal_sem_colisao():
+    eixo = gr.figura_g1(AMOSTRAS).layout.xaxis
+    assert eixo.tickangle == 0
+    assert eixo.ticktext[list(eixo.tickvals).index(3)] == ""
+    assert eixo.ticktext[list(eixo.tickvals).index(4)] == "10.000"
 
 
 def test_figura_g1_com_dados_do_projeto():
@@ -130,3 +137,20 @@ def test_figura_g1_com_dados_do_projeto():
     f = gr.figura_g1(amostras)
     assert "n=60 reais" in f.layout.annotations[0].text and "n=320 reais" in f.layout.annotations[1].text
     assert (amostras["sem_bot"]["simulado"] > 0).all()
+
+
+def test_figura_g1_rotula_o_limiar_so_no_primeiro_painel():
+    textos = [a.text for a in gr.figura_g1(AMOSTRAS).layout.annotations]
+    assert textos.count("1 h") == 1
+    assert all(textos)
+
+
+def test_figura_g1_nao_desenha_contorno_em_faixa_vazia():
+    simulado = gr.figura_g1(AMOSTRAS).data[1]
+    larguras = dict(zip(simulado.x, simulado.marker.line.width))
+    assert all((larguras[x] == 0) == (y == 0) for x, y in zip(simulado.x, simulado.y))
+
+
+def test_figura_g1_separa_os_rotulos_dos_paineis():
+    f = gr.figura_g1(AMOSTRAS)
+    assert f.layout.xaxis2.domain[0] - f.layout.xaxis.domain[1] >= 0.08
