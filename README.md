@@ -62,6 +62,34 @@ Parâmetros salvos em `data/parametros_simulacao.json`, derivados de `data/dados
 
 ---
 
+## Dados simulados
+
+```bash
+python src/simulacao.py
+```
+
+Gera `data/dados_simulados.csv` com um conjunto sob H₀ e outro sob H₁, com semente fixa
+`numpy.random.default_rng(42)`: duas execuções produzem exatamente o mesmo arquivo.
+
+Nos scripts de análise e no dashboard, importe `gerar` de `src/simulacao.py`:
+
+```python
+from simulacao import carregar_parametros, criar_rng, gerar
+
+parametros = carregar_parametros()
+bot, humano = gerar(parametros, h1=True, d=0.3, n_bot=60, n_humano=320, rng=criar_rng())
+```
+
+| Parâmetro | Efeito |
+|---|---|
+| `h1`, `d` | `h1=False` sorteia sob H₀. Com `h1=True`, `T_bot = e^δ · T` e `δ = d · σ_log_h0` (d negativo inverte o sinal) |
+| `n_bot`, `n_humano` | tamanho de cada grupo (padrão: 60 e 320, de `parametros_simulacao.json`) |
+| `distribuicao` | `"mistura"` (padrão, duas lognormais) ou `"lognormal"` (única) |
+| `fator_sigma` | multiplica o desvio de ln(T): maior deixa a cauda mais pesada |
+| `rng` | gerador; por omissão, `default_rng(42)` |
+
+---
+
 ## Testes
 
 ```bash
