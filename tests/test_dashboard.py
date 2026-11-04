@@ -96,3 +96,17 @@ def test_erro_nos_dados_aparece_na_secao_2_sem_derrubar_as_demais():
     assert [h.value for h in at.header] == SECOES
     assert len(at.error) == 1 and "data/dados_reais.csv" in at.error[0].value
     assert not [i for i in secao(at, "2. Os dados") if i.type == "plotly_chart"]
+
+
+def test_secao_3_integra_o_g2_e_o_texto():
+    itens = secao(abrir(), "3. Como os testes funcionam")
+    graficos = [i for i in itens if i.type == "plotly_chart"]
+    assert len(graficos) == 1 and graficos[0].proto.theme == ""
+    _, exemplo = dashboard.dados_g2()
+    assert dashboard.texto_g2(exemplo) in [i.value for i in itens if i.type == "markdown"]
+
+
+def test_texto_g2_tem_ate_quatro_frases():
+    _, exemplo = dashboard.dados_g2()
+    texto = dashboard.texto_g2(exemplo)
+    assert 2 <= len(re.findall(r"[.!?](?:\s|$)", texto)) <= 4

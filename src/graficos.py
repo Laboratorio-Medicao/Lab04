@@ -148,3 +148,129 @@ def figura_g1(amostras: dict) -> go.Figure:
     figura.add_vline(col=1, annotation_text="1 h", **limiar)
     figura.add_vline(col=2, **limiar)
     return figura
+
+
+# ---------------------------------------------------------------------------
+# G2: distribuição da estatística de teste sob H₀
+# ---------------------------------------------------------------------------
+
+N_REPETICOES_G2 = 2_000
+TESTES_G2 = {"welch": "t de Welch", "mann_whitney": "Mann-Whitney U (padronizado)"}
+
+
+def _graus_welch(a: np.ndarray, b: np.ndarray) -> float:
+    va, vb = np.var(a, ddof=1) / len(a), np.var(b, ddof=1) / len(b)
+    return float((va + vb) ** 2 / (va**2 / (len(a) - 1) + vb**2 / (len(b) - 1)))
+
+
+def padronizar_u(u: np.ndarray | float, n_bot: int, n_humano: int) -> np.ndarray | float:
+    """Z = (U − μ_U) / σ_U, a aproximação normal do U sob H₀ (sem correção de empates)."""
+    media = n_bot * n_humano / 2
+    desvio = math.sqrt(n_bot * n_humano * (n_bot + n_humano + 1) / 12)
+    return (u - media) / desvio
+
+
+def estatisticas_h0(
+    parametros: dict,
+    n_repeticoes: int = N_REPETICOES_G2,
+    semente: int = SEMENTE,
+) -> dict[str, np.ndarray]:
+    """Monte Carlo: t de Welch e Z do Mann-Whitney em amostras sorteadas sob H₀."""
+    from scipy import stats
+
+    rng = np.random.default_rng(semente)
+    n_bot, n_humano = parametros["n"]["com_bot"], parametros["n"]["sem_bot"]
+    h0 = parametros["mistura"]["h0"]
+    bot = amostrar_mistura(h0, (n_repeticoes, n_bot), rng)
+    humano = amostrar_mistura(h0, (n_repeticoes, n_humano), rng)
+    t = stats.ttest_ind(bot, humano, axis=1, equal_var=False).statistic
+    postos = stats.rankdata(np.concatenate([bot, humano], axis=1), axis=1)
+    u = postos[:, :n_bot].sum(axis=1) - n_bot * (n_bot + 1) / 2
+    return {"welch": np.asarray(t), "mann_whitney": padronizar_u(u, n_bot, n_humano)}
+
+
+def exemplo_g2(parametros: dict, semente: int = SEMENTE) -> dict:
+    """Um conjunto sorteado sob H₀ (mesma semente do README) e o resultado dos dois testes."""
+    from simulacao import criar_rng, gerar
+    from testes import aplicar_testes
+
+    bot, humano = gerar(parametros, h1=False, rng=criar_rng(semente))
+    res = aplicar_testes(bot, humano, cenario="H₀ verdadeira")
+    n_bot, n_humano = len(bot), len(humano)
+    return {
+        "welch": {"estatistica": res.welch.estatistica, "p_valor": res.welch.p_valor,
+                  "gl": _graus_welch(bot, humano)},
+        "mann_whitney": {"estatistica": float(padronizar_u(res.mann_whitney.estatistica, n_bot, n_humano)),
+                         "p_valor": res.mann_whitney.p_valor},
+    }
+
+
+def figura_g2(estatisticas: dict, exemplo: dict, alpha: float = 0.05) -> go.Figure:
+    """Um painel por teste: histograma Monte Carlo sob H₀, curva teórica, região de rejeição e p-valor."""
+    from scipy import stats
+
+    def distribuicao(chave: str):
+        if chave == "welch":
+            return stats.t(exemplo["welch"]["gl"])
+        return stats.norm()
+
+    figura = make_subplots(rows=1, cols=2, horizontal_spacing=0.1,
+                           subplot_titles=[nome for nome in TESTES_G2.values()])
+    for coluna, (chave, nome) in enumerate(TESTES_G2.items(), start=1):
+        cor, dist = CORES[chave], distribuicao(chave)
+        obs, p = exemplo[chave]["estatistica"], exemplo[chave]["p_valor"]
+        crit = float(dist.ppf(1 - alpha / 2))
+        limite = max(5.0, abs(obs) + 1, crit + 1)
+        x = np.linspace(-limite, limite, 600)
+        dens = dist.pdf(x)
+
+        def area(mascara, rotulo, cor_area, grupo, mostrar_legenda):
+            # Uma região por cauda: um único polígono ligaria as caudas pelo centro.
+            esquerda = mascara & (x < 0)
+            direita = mascara & (x > 0)
+            for i, cauda in enumerate((esquerda, direita)):
+                xs, ys = x[cauda], dens[cauda]
+                figura.add_trace(go.Scatter(
+                    x=np.concatenate([xs, xs[::-1]]), y=np.concatenate([ys, np.zeros_like(ys)]),
+                    fill="toself", mode="lines", line={"width": 0}, fillcolor=cor_area,
+                    name=rotulo, legendgroup=grupo, showlegend=mostrar_legenda and i == 0,
+                    hoverinfo="skip",
+                ), row=1, col=coluna)
+
+        contagem_x = np.clip(estatisticas[chave], -limite, limite)
+        figura.add_trace(go.Histogram(
+            x=contagem_x, histnorm="probability density", nbinsx=50,
+            marker={"color": com_opacidade(cor, 0.35), "line": {"color": cor, "width": 0.5}},
+            name=f"{nome}: Monte Carlo sob H₀", legendgroup=chave,
+            hovertemplate="estatística %{x:.2f}<br>densidade %{y:.3f}<extra></extra>",
+        ), row=1, col=coluna)
+        figura.add_trace(go.Scatter(
+            x=x, y=dens, mode="lines", line={"color": cor, "width": 2.5},
+            name=f"{nome}: curva teórica", legendgroup=chave, hoverinfo="skip",
+        ), row=1, col=coluna)
+        area(np.abs(x) >= crit, f"Região de rejeição (α = {alpha:g})".replace(".", ","), com_opacidade(TINTA, 0.35),
+             f"rej{chave}", coluna == 1)
+        area(np.abs(x) >= abs(obs), "Área do p-valor do exemplo", com_opacidade("#c0392b", 0.55),
+             f"p{chave}", coluna == 1)
+        topo = max(dens.max(), np.histogram(contagem_x, bins=50, density=True)[0].max()) * 1.3
+        figura.add_vline(x=obs, line_color="#c0392b", line_width=2, row=1, col=coluna)
+        figura.add_annotation(
+            x=obs, y=topo, xanchor="right" if obs < 0 else "left", yanchor="top", showarrow=False,
+            text=f"exemplo: {obs:.2f}<br>p = {p:.3f}".replace(".", ","), font={"color": "#c0392b"},
+            xshift=-6 if obs < 0 else 6, row=1, col=coluna,
+        )
+        figura.update_yaxes(range=[0, topo], row=1, col=coluna)
+        figura.update_xaxes(title_text=f"Estatística de teste ({'t' if chave == 'welch' else 'Z'})",
+                            range=[-limite, limite], row=1, col=coluna)
+
+    figura.update_layout(
+        title="G2: distribuição da estatística sob H₀ (bicaudal)",
+        showlegend=True, barmode="overlay", separators=",.", height=480,
+        paper_bgcolor=SUPERFICIE, plot_bgcolor=SUPERFICIE, font={"color": TINTA},
+        legend={"orientation": "h", "y": -0.28},
+    )
+    figura.update_xaxes(showgrid=False, zeroline=False)
+    figura.update_yaxes(gridcolor=GRADE, zeroline=False)
+    figura.update_yaxes(title_text="Densidade", row=1, col=1)
+    figura.update_yaxes(title_text="Densidade", row=1, col=2)
+    return figura
