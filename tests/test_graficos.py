@@ -171,3 +171,43 @@ def test_amostras_g1_rejeitam_tempo_nao_numerico():
 def test_amostras_g1_rejeitam_coluna_ausente():
     with pytest.raises(ValueError, match="horas_ate_merge"):
         gr.amostras_g1(DADOS.drop(columns="horas_ate_merge"), PARAMETROS)
+
+
+PARAMETROS_G2 = {"n": {"com_bot": 20, "sem_bot": 40}, "mistura": {"h0": mistura(1.0)}}
+
+
+def test_estatisticas_h0_reproduzem_e_tem_um_valor_por_repeticao():
+    a = gr.estatisticas_h0(PARAMETROS_G2, n_repeticoes=50)
+    b = gr.estatisticas_h0(PARAMETROS_G2, n_repeticoes=50)
+    assert set(a) == {"welch", "mann_whitney"}
+    assert all(len(v) == 50 for v in a.values())
+    assert all(np.array_equal(a[k], b[k]) for k in a)
+
+
+def test_u_padronizado_sob_h0_tem_media_zero_e_desvio_um():
+    z = gr.estatisticas_h0(PARAMETROS_G2, n_repeticoes=2000)["mann_whitney"]
+    assert abs(z.mean()) < 0.1 and abs(z.std() - 1) < 0.1
+
+
+def test_exemplo_g2_bate_com_aplicar_testes():
+    exemplo = gr.exemplo_g2(carregar_parametros())
+    assert 0 < exemplo["welch"]["p_valor"] < 1 and exemplo["welch"]["gl"] > 0
+    assert 0 < exemplo["mann_whitney"]["p_valor"] < 1
+
+
+def test_figura_g2_tem_regiao_pvalor_titulo_eixos_e_legenda():
+    parametros = carregar_parametros()
+    fig = gr.figura_g2(gr.estatisticas_h0(parametros, n_repeticoes=200), gr.exemplo_g2(parametros))
+    # Cada região tem duas séries por painel (uma por cauda); a legenda mostra uma só.
+    regioes = [t for t in fig.data if t.name.startswith("Região de rejeição")]
+    areas_p = [t for t in fig.data if t.name == "Área do p-valor do exemplo"]
+    assert len(regioes) == len(areas_p) == 4
+    assert sum(bool(t.showlegend) for t in regioes) == sum(bool(t.showlegend) for t in areas_p) == 1
+    assert sum(t.type == "histogram" for t in fig.data) == 2
+    assert fig.layout.title.text.startswith("G2") and fig.layout.showlegend
+    assert all(fig.layout[e].title.text for e in ("xaxis", "xaxis2", "yaxis", "yaxis2"))
+    for chave in gr.TESTES_G2:
+        nome = gr.TESTES_G2[chave]
+        histograma = next(t for t in fig.data if t.type == "histogram" and t.name.startswith(nome))
+        curva = next(t for t in fig.data if t.name == f"{nome}: curva teórica")
+        assert histograma.marker.line.color == curva.line.color == gr.CORES[chave]

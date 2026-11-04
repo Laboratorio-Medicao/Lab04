@@ -18,7 +18,9 @@ from streamlit import runtime
 RAIZ = Path(__file__).resolve().parent
 sys.path.insert(0, str(RAIZ / "src"))
 
-from graficos import amostras_g1, bordas_log, figura_g1, tabela_g1  # noqa: E402
+from graficos import (  # noqa: E402
+    amostras_g1, bordas_log, estatisticas_h0, exemplo_g2, figura_g1, figura_g2, tabela_g1,
+)
 from simulacao import carregar_parametros  # noqa: E402
 
 
@@ -40,6 +42,32 @@ def texto_g1(parametros: dict) -> str:
         "A mistura reproduz a forma geral dos dados reais, mas ainda gera uma cauda mais pesada que "
         "a observada, sobretudo no grupo humano."
     )
+
+
+def texto_g2(exemplo: dict) -> str:
+    def v(x: float) -> str:
+        return f"{x:.2f}".replace(".", ",")
+
+    w, mw = exemplo["welch"], exemplo["mann_whitney"]
+    rejeita = [t for t in (w, mw) if t["p_valor"] < 0.05]
+    conclusao = ("nenhum teste cai na região de rejeição, então H₀ não é rejeitada." if not rejeita
+                 else "ao menos um teste cai na região de rejeição, o que seria um falso positivo.")
+    return (
+        "O t de Welch compara as médias dos dois grupos e o Mann-Whitney compara se um PR de um grupo "
+        "tende a demorar mais que o do outro. Como o teste é bicaudal, a região de rejeição (cinza) fica "
+        "nas duas caudas, onde a estatística seria rara sob H₀ (5% no total). "
+        f"No exemplo, sorteado sob H₀, o t vale {v(w['estatistica'])} (p = {v(w['p_valor'])}) e o Z do "
+        f"Mann-Whitney vale {v(mw['estatistica'])} (p = {v(mw['p_valor'])}). "
+        "O p-valor é a área em vermelho: a chance de obter uma estatística tão extrema quanto a do exemplo "
+        "se H₀ fosse verdadeira, e " + conclusao
+
+    )
+
+
+@st.cache_data
+def dados_g2() -> tuple[dict, dict]:
+    parametros = carregar_parametros()
+    return estatisticas_h0(parametros), exemplo_g2(parametros)
 
 
 def secao_1() -> None:
@@ -65,7 +93,11 @@ def secao_2() -> None:
 
 def secao_3() -> None:
     st.header("3. Como os testes funcionam")
-    em_construcao("#6 e #8")
+    estatisticas, exemplo = dados_g2()
+    st.plotly_chart(figura_g2(estatisticas, exemplo), theme=None, width="stretch")
+    st.caption("Histograma de 2.000 conjuntos sorteados sob H₀ (n = 60 e 320), com semente fixa 42. "
+               "A curva é a distribuição teórica: t com graus de liberdade de Welch e normal padrão para o U padronizado.")
+    st.write(texto_g2(exemplo))
 
 
 def secao_4() -> None:
