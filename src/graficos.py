@@ -335,9 +335,12 @@ def figura_g4(dados: pd.DataFrame, alpha: float = 0.05) -> go.Figure:
                 hovertemplate=("d = %{x}<br>rejeita %{y:.1%} (IC95% %{customdata[0]:.1%} a "
                                "%{customdata[1]:.1%})<extra>%{fullData.name}</extra>"),
             ), row=1, col=coluna)
-        figura.add_hline(y=alpha, line_dash="dot", line_color=TINTA, line_width=1, row=1, col=coluna,
-                         annotation_text="α = 5%" if coluna == 1 else None,
-                         annotation_position="top left")
+        figura.add_hline(y=alpha, line_dash="dot", line_color=TINTA, line_width=1, row=1, col=coluna)
+    # Entrada só de legenda para a linha de α, sem rótulo em cima dos pontos.
+    figura.add_trace(go.Scatter(
+        x=[None], y=[None], mode="lines", name=f"α = {alpha:.0%}".replace(".", ","),
+        line={"color": TINTA, "width": 1, "dash": "dot"}, hoverinfo="skip", showlegend=True,
+    ))
 
     figura.update_layout(
         title="G4: curvas de poder do t de Welch e do Mann-Whitney",

@@ -249,14 +249,17 @@ def test_figura_g4_tem_titulo_eixos_legenda_e_linha_de_alfa():
     assert all(fig.layout[e].title.text for e in ("xaxis", "xaxis2", "xaxis3", "yaxis"))
     assert tuple(fig.layout.yaxis.range) == (0, 1)
     assert len([s for s in fig.layout.shapes if s.y0 == 0.05]) == 3
-    assert len(fig.data) == 3 * 2
-    assert sum(bool(t.showlegend) for t in fig.data) == 2
+    assert len(fig.data) == 3 * 2 + 1
+    assert sum(bool(t.showlegend) for t in fig.data) == 3
+    assert not fig.layout.annotations or all(a.text != "new text" for a in fig.layout.annotations)
+    assert all(a.text in gr.PAINEIS_G4.values() for a in fig.layout.annotations)
 
 
 def test_figura_g4_usa_a_cor_de_cada_teste_em_todos_os_paineis():
     fig = gr.figura_g4(gr.dados_g4(Q2_G4, Q3_G4))
     for t in fig.data:
-        assert t.line.color == gr.CORES[gr.TESTES_G4[t.name]]
+        if t.name in gr.TESTES_G4:
+            assert t.line.color == gr.CORES[gr.TESTES_G4[t.name]]
 
 
 def test_tabela_g4_tem_uma_linha_por_situacao_e_d():
