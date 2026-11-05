@@ -277,6 +277,72 @@ def figura_g2(estatisticas: dict, exemplo: dict, alpha: float = 0.05) -> go.Figu
 
 
 # ---------------------------------------------------------------------------
+# G3: erro tipo I dos dois testes por situação simulada
+# ---------------------------------------------------------------------------
+
+ROTULOS_G3 = {
+    "H₀ verdadeira": "Situação normal (Q1)",
+    "amostras_pequenas": "Violação: amostras pequenas (Q3)",
+    "outliers_extremos": "Violação: outliers extremos (Q3)",
+}
+TESTES_G3 = {"t de Welch": "welch", "Mann-Whitney U": "mann_whitney"}
+
+
+def dados_g3(q1_resumo: pd.DataFrame, q3_comparacao: pd.DataFrame) -> pd.DataFrame:
+    """Junta o erro tipo I da situação normal (Q1) com as violações de pressuposto (Q3)."""
+    normal = q1_resumo[["teste", "proporcao_rejeicoes"]].copy()
+    normal["situacao"] = "H₀ verdadeira"
+
+    violacoes = (
+        q3_comparacao[
+            (q3_comparacao["metrica"] == "erro tipo I (Q1)") & (q3_comparacao["d"] == 0.0)
+        ][["situacao", "teste", "proporcao_rejeicoes"]].copy()
+    )
+
+    return pd.concat([normal, violacoes], ignore_index=True)
+
+
+def tabela_g3(dados: pd.DataFrame) -> pd.DataFrame:
+    tabela = dados.pivot_table(index="situacao", columns="teste", values="proporcao_rejeicoes")
+    tabela = (tabela * 100).reset_index()
+    tabela["situacao"] = tabela["situacao"].map(ROTULOS_G3).fillna(tabela["situacao"])
+    return tabela.rename(columns={"situacao": "Situação", **{t: f"{t} (%)" for t in TESTES_G3}})
+
+
+def figura_g3(dados: pd.DataFrame, alpha: float = 0.05) -> go.Figure:
+    """Barras agrupadas: proporção de rejeições sob H₀ por situação e teste, com linha em α."""
+    situacoes = list(ROTULOS_G3.keys())
+    rotulos = [ROTULOS_G3[s] for s in situacoes]
+
+    figura = go.Figure()
+    for teste, chave in TESTES_G3.items():
+        serie = dados[dados["teste"] == teste].set_index("situacao")
+        y = [float(serie.loc[s, "proporcao_rejeicoes"]) if s in serie.index else 0.0
+             for s in situacoes]
+        figura.add_trace(go.Bar(
+            name=teste, x=rotulos, y=y, marker_color=CORES[chave],
+            hovertemplate="%{x}<br>rejeita %{y:.1%}<extra>%{fullData.name}</extra>",
+        ))
+
+    figura.add_hline(
+        y=alpha, line_dash="dot", line_color=TINTA, line_width=1.5,
+        annotation_text=f"α = {alpha:.0%}", annotation_position="top right",
+        annotation_font_color=TINTA,
+    )
+    figura.update_layout(
+        title="G3: erro tipo I dos dois testes por situação simulada",
+        showlegend=True, barmode="group", separators=",.", height=420,
+        paper_bgcolor=SUPERFICIE, plot_bgcolor=SUPERFICIE, font={"color": TINTA},
+        legend={"orientation": "h", "y": -0.18},
+        yaxis_tickformat=".0%", yaxis_title="Proporção de rejeições sob H₀",
+        xaxis_title="Situação simulada",
+    )
+    figura.update_xaxes(showgrid=False)
+    figura.update_yaxes(gridcolor=GRADE, zeroline=False)
+    return figura
+
+
+# ---------------------------------------------------------------------------
 # G4: curvas de poder dos dois testes
 # ---------------------------------------------------------------------------
 
