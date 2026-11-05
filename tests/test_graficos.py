@@ -211,3 +211,55 @@ def test_figura_g2_tem_regiao_pvalor_titulo_eixos_e_legenda():
         histograma = next(t for t in fig.data if t.type == "histogram" and t.name.startswith(nome))
         curva = next(t for t in fig.data if t.name == f"{nome}: curva teórica")
         assert histograma.marker.line.color == curva.line.color == gr.CORES[chave]
+
+
+def poder_g4(valores):
+    linhas = []
+    for d, (welch, mw) in valores.items():
+        for teste, p in (("t de Welch", welch), ("Mann-Whitney U", mw)):
+            linhas.append({"d": d, "teste": teste, "proporcao_rejeicoes": p,
+                           "ic95_inferior": max(0, p - 0.01), "ic95_superior": min(1, p + 0.01)})
+    return pd.DataFrame(linhas)
+
+
+Q2_G4 = poder_g4({0.0: (0.11, 0.05), 0.5: (0.2, 0.9), 1.0: (0.5, 1.0)})
+Q3_G4 = pd.concat([
+    poder_g4({0.0: (0.01, 0.04), 0.5: (0.02, 0.2), 1.0: (0.03, 0.5)}).assign(situacao="amostras_pequenas"),
+    poder_g4({0.0: (0.08, 0.05), 0.5: (0.02, 0.9), 1.0: (0.09, 1.0)}).assign(situacao="outliers_extremos"),
+    Q2_G4.assign(situacao="normal"),
+], ignore_index=True)
+
+
+def test_dados_g4_junta_normal_da_q2_e_violacoes_da_q3():
+    dados = gr.dados_g4(Q2_G4, Q3_G4)
+    assert set(dados["situacao"]) == set(gr.PAINEIS_G4)
+    assert len(dados) == 3 * 3 * 2
+
+
+def test_dados_g4_rejeita_csv_incompleto():
+    with pytest.raises(ValueError, match="colunas"):
+        gr.dados_g4(Q2_G4.drop(columns="ic95_inferior"), Q3_G4)
+    with pytest.raises(ValueError, match="situações"):
+        gr.dados_g4(Q2_G4, Q3_G4[Q3_G4["situacao"] == "normal"])
+
+
+def test_figura_g4_tem_titulo_eixos_legenda_e_linha_de_alfa():
+    fig = gr.figura_g4(gr.dados_g4(Q2_G4, Q3_G4))
+    assert fig.layout.title.text.startswith("G4") and fig.layout.showlegend
+    assert all(fig.layout[e].title.text for e in ("xaxis", "xaxis2", "xaxis3", "yaxis"))
+    assert tuple(fig.layout.yaxis.range) == (0, 1)
+    assert len([s for s in fig.layout.shapes if s.y0 == 0.05]) == 3
+    assert len(fig.data) == 3 * 2
+    assert sum(bool(t.showlegend) for t in fig.data) == 2
+
+
+def test_figura_g4_usa_a_cor_de_cada_teste_em_todos_os_paineis():
+    fig = gr.figura_g4(gr.dados_g4(Q2_G4, Q3_G4))
+    for t in fig.data:
+        assert t.line.color == gr.CORES[gr.TESTES_G4[t.name]]
+
+
+def test_tabela_g4_tem_uma_linha_por_situacao_e_d():
+    tabela = gr.tabela_g4(gr.dados_g4(Q2_G4, Q3_G4))
+    assert len(tabela) == 3 * 3
+    assert {"t de Welch (%)", "Mann-Whitney U (%)"} <= set(tabela.columns)

@@ -90,7 +90,12 @@ def test_tema_claro_fixo():
 
 def test_erro_nos_dados_aparece_na_secao_2_sem_derrubar_as_demais():
     invalidos = pd.DataFrame({"grupo": ["com_bot", "sem_bot"], "horas_ate_merge": [0.0, 1.0]})
-    with patch.object(pd, "read_csv", return_value=invalidos):
+    original = pd.read_csv
+
+    def leitura(caminho, *a, **k):
+        return invalidos if "dados_reais" in str(caminho) else original(caminho, *a, **k)
+
+    with patch.object(pd, "read_csv", side_effect=leitura):
         at = abrir()
     assert not at.exception
     assert [h.value for h in at.header] == SECOES
@@ -110,3 +115,37 @@ def test_texto_g2_tem_ate_quatro_frases():
     _, exemplo = dashboard.dados_g2()
     texto = dashboard.texto_g2(exemplo)
     assert 2 <= len(re.findall(r"[.!?](?:\s|$)", texto)) <= 4
+
+
+def dados_poder():
+    return dashboard.dados_g4(pd.read_csv(RAIZ / "data" / "simulacao_q2_poder.csv"),
+                              pd.read_csv(RAIZ / "data" / "simulacao_q3_poder.csv"))
+
+
+def test_secao_5_integra_o_g4_o_texto_e_a_tabela():
+    itens = secao(abrir(), "5. Poder")
+    graficos = [i for i in itens if i.type == "plotly_chart"]
+    assert len(graficos) == 1 and graficos[0].proto.theme == ""
+    assert dashboard.texto_g4(dados_poder()) in [i.value for i in itens if i.type == "markdown"]
+    assert [i.label for i in itens if i.type == "expander"] == ["Ver dados do G4"]
+
+
+def test_texto_g4_tem_ate_quatro_frases_com_dados_reais():
+    texto = dashboard.texto_g4(dados_poder())
+    assert 2 <= len(re.findall(r"[.!?](?:\s|$)", texto)) <= 4
+    for trecho in ("100%", "54%", "49%", "3%", "9%"):
+        assert trecho in texto
+
+
+def test_erro_nos_csvs_de_poder_aparece_na_secao_5_sem_derrubar_as_demais():
+    original = pd.read_csv
+    def leitura(caminho, *a, **k):
+        if "simulacao_q2_poder" in str(caminho):
+            return pd.DataFrame({"d": [0.0]})
+        return original(caminho, *a, **k)
+    with patch.object(pd, "read_csv", side_effect=leitura):
+        at = abrir()
+    assert not at.exception
+    assert [h.value for h in at.header] == SECOES
+    assert len(at.error) == 1 and "G4" in at.error[0].value
+    assert not [i for i in secao(at, "5. Poder") if i.type == "plotly_chart"]

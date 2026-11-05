@@ -274,3 +274,78 @@ def figura_g2(estatisticas: dict, exemplo: dict, alpha: float = 0.05) -> go.Figu
     figura.update_yaxes(title_text="Densidade", row=1, col=1)
     figura.update_yaxes(title_text="Densidade", row=1, col=2)
     return figura
+
+
+# ---------------------------------------------------------------------------
+# G4: curvas de poder dos dois testes
+# ---------------------------------------------------------------------------
+
+TESTES_G4 = {"t de Welch": "welch", "Mann-Whitney U": "mann_whitney"}
+# Painéis do G4: a situação normal vem da Q2 e as de violação de pressuposto, da Q3.
+PAINEIS_G4 = {
+    "normal": "Situação normal (Q2)",
+    "amostras_pequenas": "Violação: amostras pequenas (Q3)",
+    "outliers_extremos": "Violação: outliers extremos (Q3)",
+}
+COLUNAS_G4 = ["d", "teste", "proporcao_rejeicoes", "ic95_inferior", "ic95_superior"]
+
+
+def dados_g4(q2_poder: pd.DataFrame, q3_poder: pd.DataFrame) -> pd.DataFrame:
+    """Junta a curva da Q2 (normal) e as da Q3 (violações) em um formato longo, por situação."""
+    faltam = [c for c in COLUNAS_G4 if c not in q2_poder.columns or c not in q3_poder.columns]
+    if faltam:
+        raise ValueError(f"Faltam colunas nos CSVs de poder: {', '.join(faltam)}")
+    adversas = [s for s in PAINEIS_G4 if s != "normal"]
+    if "situacao" not in q3_poder.columns or not set(adversas) <= set(q3_poder["situacao"]):
+        raise ValueError(f"O CSV da Q3 precisa das situações {', '.join(adversas)}")
+    partes = [q2_poder[COLUNAS_G4].assign(situacao="normal")]
+    for situacao in adversas:
+        partes.append(q3_poder.loc[q3_poder["situacao"] == situacao, COLUNAS_G4].assign(situacao=situacao))
+    dados = pd.concat(partes, ignore_index=True)
+    if not set(TESTES_G4) <= set(dados["teste"]):
+        raise ValueError("Os CSVs de poder precisam dos dois testes")
+    return dados
+
+
+def tabela_g4(dados: pd.DataFrame) -> pd.DataFrame:
+    """Poder (%) por situação e d, uma coluna por teste."""
+    tabela = dados.pivot_table(index=["situacao", "d"], columns="teste", values="proporcao_rejeicoes")
+    tabela = (tabela * 100).reset_index()
+    tabela["situacao"] = tabela["situacao"].map(PAINEIS_G4)
+    return tabela.rename(columns={"situacao": "Situação", "d": "d",
+                                  **{t: f"{t} (%)" for t in TESTES_G4}})
+
+
+def figura_g4(dados: pd.DataFrame, alpha: float = 0.05) -> go.Figure:
+    """Um painel por situação: proporção de rejeições × tamanho do efeito, os dois testes juntos."""
+    figura = make_subplots(
+        rows=1, cols=len(PAINEIS_G4), shared_yaxes=True, horizontal_spacing=0.05,
+        subplot_titles=list(PAINEIS_G4.values()),
+    )
+    for coluna, situacao in enumerate(PAINEIS_G4, start=1):
+        for teste, chave in TESTES_G4.items():
+            serie = dados[(dados["situacao"] == situacao) & (dados["teste"] == teste)].sort_values("d")
+            cor = CORES[chave]
+            figura.add_trace(go.Scatter(
+                x=serie["d"], y=serie["proporcao_rejeicoes"], mode="lines+markers", name=teste,
+                legendgroup=chave, showlegend=coluna == 1,
+                line={"color": cor, "width": 2.5, "dash": "solid" if chave == "mann_whitney" else "dash"},
+                marker={"color": cor, "size": 7},
+                customdata=np.stack([serie["ic95_inferior"], serie["ic95_superior"]], axis=-1),
+                hovertemplate=("d = %{x}<br>rejeita %{y:.1%} (IC95% %{customdata[0]:.1%} a "
+                               "%{customdata[1]:.1%})<extra>%{fullData.name}</extra>"),
+            ), row=1, col=coluna)
+        figura.add_hline(y=alpha, line_dash="dot", line_color=TINTA, line_width=1, row=1, col=coluna,
+                         annotation_text="α = 5%" if coluna == 1 else None,
+                         annotation_position="top left")
+
+    figura.update_layout(
+        title="G4: curvas de poder do t de Welch e do Mann-Whitney",
+        showlegend=True, separators=",.", height=460,
+        paper_bgcolor=SUPERFICIE, plot_bgcolor=SUPERFICIE, font={"color": TINTA},
+        legend={"orientation": "h", "y": -0.22},
+    )
+    figura.update_xaxes(title_text="Tamanho do efeito d (padronizado em ln T)", showgrid=False, zeroline=False)
+    figura.update_yaxes(gridcolor=GRADE, zeroline=False, range=[0, 1], tickformat=".0%")
+    figura.update_yaxes(title_text="Proporção de rejeições (poder)", row=1, col=1)
+    return figura
