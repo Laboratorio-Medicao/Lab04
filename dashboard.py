@@ -19,7 +19,8 @@ RAIZ = Path(__file__).resolve().parent
 sys.path.insert(0, str(RAIZ / "src"))
 
 from graficos import (  # noqa: E402
-    amostras_g1, bordas_log, estatisticas_h0, exemplo_g2, figura_g1, figura_g2, tabela_g1,
+    PAINEIS_G4, amostras_g1, bordas_log, dados_g4, estatisticas_h0, exemplo_g2, figura_g1,
+    figura_g2, figura_g4, tabela_g1, tabela_g4,
 )
 from simulacao import carregar_parametros  # noqa: E402
 
@@ -61,6 +62,33 @@ def texto_g2(exemplo: dict) -> str:
         "O p-valor é a área em vermelho: a chance de obter uma estatística tão extrema quanto a do exemplo "
         "se H₀ fosse verdadeira, e " + conclusao
 
+    )
+
+
+def texto_g4(dados: pd.DataFrame) -> str:
+    def pct(situacao: str, teste: str, d: float) -> float:
+        linha = dados[(dados["situacao"] == situacao) & (dados["teste"] == teste) & (dados["d"] == d)]
+        return float(linha["proporcao_rejeicoes"].iloc[0])
+
+    def p(x: float) -> str:
+        return f"{x:.0%}".replace(".", ",")
+
+    d_max = float(dados["d"].max())
+    welch_ganha = [
+        PAINEIS_G4[s].lower() for s in PAINEIS_G4
+        if any(pct(s, "t de Welch", d) > pct(s, "Mann-Whitney U", d) for d in dados["d"].unique() if d > 0)
+    ]
+    vantagem = ("em todas as situações simuladas e em todo d > 0" if not welch_ganha
+                else "na maior parte da curva, com exceção de " + "; ".join(welch_ganha))
+    return (
+        f"O Mann-Whitney tem mais poder que o t de Welch {vantagem}: na situação normal, com "
+        f"d = {d_max:g}, ele rejeita {p(pct('normal', 'Mann-Whitney U', d_max))} das vezes e o Welch, "
+        f"{p(pct('normal', 't de Welch', d_max))}. "
+        "A violação de pressuposto derruba sobretudo o Welch: com amostras pequenas o Mann-Whitney "
+        f"chega a {p(pct('amostras_pequenas', 'Mann-Whitney U', d_max))} e o Welch, a "
+        f"{p(pct('amostras_pequenas', 't de Welch', d_max))}, e com outliers extremos o Welch fica em "
+        f"{p(pct('outliers_extremos', 't de Welch', d_max))}. "
+        "O valor em d = 0 não é poder, e sim o erro tipo I, que o Welch infla além de 5% na situação normal."
     )
 
 
@@ -107,7 +135,17 @@ def secao_4() -> None:
 
 def secao_5() -> None:
     st.header("5. Poder")
-    em_construcao("#16")
+    try:
+        dados = dados_g4(pd.read_csv(RAIZ / "data" / "simulacao_q2_poder.csv"),
+                         pd.read_csv(RAIZ / "data" / "simulacao_q3_poder.csv"))
+    except (ValueError, OSError) as erro:
+        st.error(f"Não foi possível montar o G4 com os CSVs de poder da Q2 e da Q3: {erro}")
+        return
+    st.plotly_chart(figura_g4(dados), theme=None, width="stretch")
+    st.caption("Cada ponto tem 10.000 repetições por teste, com semente fixa 42. A linha pontilhada é α = 5%.")
+    st.write(texto_g4(dados))
+    with st.expander("Ver dados do G4"):
+        st.dataframe(tabela_g4(dados).style.format(precision=1, decimal=","), hide_index=True)
 
 
 def secao_6() -> None:
