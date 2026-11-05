@@ -19,8 +19,8 @@ RAIZ = Path(__file__).resolve().parent
 sys.path.insert(0, str(RAIZ / "src"))
 
 from graficos import (  # noqa: E402
-    PAINEIS_G4, amostras_g1, bordas_log, dados_g4, estatisticas_h0, exemplo_g2, figura_g1,
-    figura_g2, figura_g4, tabela_g1, tabela_g4,
+    PAINEIS_G4, amostras_g1, bordas_log, dados_g3, dados_g4, estatisticas_h0, exemplo_g2,
+    figura_g1, figura_g2, figura_g3, figura_g4, tabela_g1, tabela_g3, tabela_g4,
 )
 from simulacao import carregar_parametros  # noqa: E402
 
@@ -128,9 +128,39 @@ def secao_3() -> None:
     st.write(texto_g2(exemplo))
 
 
+def texto_g3(dados: pd.DataFrame) -> str:
+    def p(situacao: str, teste: str) -> str:
+        v = float(dados[(dados["situacao"] == situacao) & (dados["teste"] == teste)]["proporcao_rejeicoes"].iloc[0])
+        return f"{v:.1%}".replace(".", ",")
+
+    return (
+        f"Na situação normal, o t de Welch rejeitou H₀ em {p('H₀ verdadeira', 't de Welch')} das amostras — "
+        f"bem acima dos 5% esperados: o teste é **liberal** neste cenário porque os dados são muito assimétricos "
+        f"e a aproximação normal da estatística t falha. O Mann-Whitney ficou em {p('H₀ verdadeira', 'Mann-Whitney U')}, "
+        "próximo do nominal. "
+        f"Com amostras pequenas (n = 10), o Welch caiu para {p('amostras_pequenas', 't de Welch')} — agora **conservador** — "
+        f"enquanto o Mann-Whitney se manteve em {p('amostras_pequenas', 'Mann-Whitney U')}. "
+        f"Com outliers extremos, o Welch voltou a {p('outliers_extremos', 't de Welch')} e o Mann-Whitney a "
+        f"{p('outliers_extremos', 'Mann-Whitney U')}: o Mann-Whitney controla o erro tipo I de forma mais estável "
+        "em todos os cenários testados."
+    )
+
+
 def secao_4() -> None:
     st.header("4. Erro tipo I")
-    em_construcao("#15")
+    try:
+        dados = dados_g3(
+            pd.read_csv(RAIZ / "data" / "simulacao_q1_resumo.csv"),
+            pd.read_csv(RAIZ / "data" / "simulacao_q3_comparacao.csv"),
+        )
+    except (ValueError, OSError) as erro:
+        st.error(f"Não foi possível montar o G3: {erro}")
+        return
+    st.plotly_chart(figura_g3(dados), theme=None, width="stretch")
+    st.caption("10.000 repetições por situação e por teste, com semente fixa 42. A linha pontilhada é α = 5%.")
+    st.write(texto_g3(dados))
+    with st.expander("Ver dados do G3"):
+        st.dataframe(tabela_g3(dados).style.format(precision=1, decimal=","), hide_index=True)
 
 
 def secao_5() -> None:

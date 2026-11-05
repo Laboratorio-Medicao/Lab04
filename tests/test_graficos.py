@@ -266,3 +266,58 @@ def test_tabela_g4_tem_uma_linha_por_situacao_e_d():
     tabela = gr.tabela_g4(gr.dados_g4(Q2_G4, Q3_G4))
     assert len(tabela) == 3 * 3
     assert {"t de Welch (%)", "Mann-Whitney U (%)"} <= set(tabela.columns)
+
+
+# ---------------------------------------------------------------------------
+# G3
+# ---------------------------------------------------------------------------
+
+def _q1_resumo(welch=0.112, mw=0.05):
+    return pd.DataFrame({
+        "teste": ["t de Welch", "Mann-Whitney U"],
+        "proporcao_rejeicoes": [welch, mw],
+    })
+
+
+def _q3_comparacao():
+    linhas = []
+    for situacao in ("amostras_pequenas", "outliers_extremos"):
+        for teste, p in (("t de Welch", 0.01), ("Mann-Whitney U", 0.045)):
+            linhas.append({"situacao": situacao, "metrica": "erro tipo I (Q1)", "d": 0.0,
+                           "teste": teste, "proporcao_rejeicoes": p})
+            linhas.append({"situacao": situacao, "metrica": "poder (Q2)", "d": 0.5,
+                           "teste": teste, "proporcao_rejeicoes": p + 0.3})
+    return pd.DataFrame(linhas)
+
+
+def test_dados_g3_tem_tres_situacoes_e_dois_testes():
+    dados = gr.dados_g3(_q1_resumo(), _q3_comparacao())
+    assert set(dados["situacao"]) == set(gr.ROTULOS_G3)
+    assert set(dados["teste"]) == {"t de Welch", "Mann-Whitney U"}
+    assert len(dados) == 6
+
+
+def test_dados_g3_usa_so_erro_tipo_i_da_q3():
+    dados = gr.dados_g3(_q1_resumo(), _q3_comparacao())
+    # não deve incluir linhas de poder (d != 0)
+    assert all(dados[dados["situacao"] != "H₀ verdadeira"]["proporcao_rejeicoes"] <= 0.1)
+
+
+def test_figura_g3_tem_titulo_eixos_legenda_e_linha_de_alfa():
+    fig = gr.figura_g3(gr.dados_g3(_q1_resumo(), _q3_comparacao()))
+    assert fig.layout.title.text.startswith("G3") and fig.layout.showlegend
+    assert fig.layout.yaxis.title.text
+    assert len([s for s in fig.layout.shapes if s.y0 == pytest.approx(0.05)]) == 1
+
+
+def test_figura_g3_usa_a_cor_de_cada_teste():
+    fig = gr.figura_g3(gr.dados_g3(_q1_resumo(), _q3_comparacao()))
+    for t in fig.data:
+        if t.name in gr.TESTES_G3:
+            assert t.marker.color == gr.CORES[gr.TESTES_G3[t.name]]
+
+
+def test_tabela_g3_tem_uma_linha_por_situacao():
+    tabela = gr.tabela_g3(gr.dados_g3(_q1_resumo(), _q3_comparacao()))
+    assert len(tabela) == 3
+    assert {"t de Welch (%)", "Mann-Whitney U (%)"} <= set(tabela.columns)
