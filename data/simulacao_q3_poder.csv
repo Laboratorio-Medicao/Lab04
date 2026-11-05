@@ -1,0 +1,43 @@
+situacao,rotulo_situacao,d,teste,repeticoes,rejeicoes,proporcao_rejeicoes,ic95_inferior,ic95_superior
+normal,Normal (cenário),0.0,t de Welch,10000,1120,0.112,0.105819,0.118181
+normal,Normal (cenário),0.0,Mann-Whitney U,10000,501,0.0501,0.045824,0.054376
+normal,Normal (cenário),0.1,t de Welch,10000,512,0.0512,0.04688,0.05552
+normal,Normal (cenário),0.1,Mann-Whitney U,10000,1305,0.1305,0.123898,0.137102
+normal,Normal (cenário),0.2,t de Welch,10000,270,0.027,0.023823,0.030177
+normal,Normal (cenário),0.2,Mann-Whitney U,10000,3702,0.3702,0.360736,0.379664
+normal,Normal (cenário),0.3,t de Welch,10000,382,0.0382,0.034443,0.041957
+normal,Normal (cenário),0.3,Mann-Whitney U,10000,7000,0.7,0.691018,0.708982
+normal,Normal (cenário),0.5,t de Welch,10000,1623,0.1623,0.155073,0.169527
+normal,Normal (cenário),0.5,Mann-Whitney U,10000,9829,0.9829,0.980359,0.985441
+normal,Normal (cenário),0.8,t de Welch,10000,4424,0.4424,0.432665,0.452135
+normal,Normal (cenário),0.8,Mann-Whitney U,10000,9999,0.9999,0.999704,1.0
+normal,Normal (cenário),1.0,t de Welch,10000,5445,0.5445,0.534739,0.554261
+normal,Normal (cenário),1.0,Mann-Whitney U,10000,10000,1.0,1.0,1.0
+amostras_pequenas,Amostras pequenas (n = 10),0.0,t de Welch,10000,50,0.005,0.003618,0.006382
+amostras_pequenas,Amostras pequenas (n = 10),0.0,Mann-Whitney U,10000,432,0.0432,0.039215,0.047185
+amostras_pequenas,Amostras pequenas (n = 10),0.1,t de Welch,10000,62,0.0062,0.004662,0.007738
+amostras_pequenas,Amostras pequenas (n = 10),0.1,Mann-Whitney U,10000,504,0.0504,0.046112,0.054688
+amostras_pequenas,Amostras pequenas (n = 10),0.2,t de Welch,10000,60,0.006,0.004486,0.007514
+amostras_pequenas,Amostras pequenas (n = 10),0.2,Mann-Whitney U,10000,685,0.0685,0.063549,0.073451
+amostras_pequenas,Amostras pequenas (n = 10),0.3,t de Welch,10000,68,0.0068,0.005189,0.008411
+amostras_pequenas,Amostras pequenas (n = 10),0.3,Mann-Whitney U,10000,1002,0.1002,0.094315,0.106085
+amostras_pequenas,Amostras pequenas (n = 10),0.5,t de Welch,10000,136,0.0136,0.01133,0.01587
+amostras_pequenas,Amostras pequenas (n = 10),0.5,Mann-Whitney U,10000,2026,0.2026,0.194722,0.210478
+amostras_pequenas,Amostras pequenas (n = 10),0.8,t de Welch,10000,207,0.0207,0.017909,0.023491
+amostras_pequenas,Amostras pequenas (n = 10),0.8,Mann-Whitney U,10000,3728,0.3728,0.363323,0.382277
+amostras_pequenas,Amostras pequenas (n = 10),1.0,t de Welch,10000,282,0.0282,0.024955,0.031445
+amostras_pequenas,Amostras pequenas (n = 10),1.0,Mann-Whitney U,10000,4913,0.4913,0.481502,0.501098
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.0,t de Welch,10000,849,0.0849,0.079437,0.090363
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.0,Mann-Whitney U,10000,490,0.049,0.044769,0.053231
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.1,t de Welch,10000,558,0.0558,0.051301,0.060299
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.1,Mann-Whitney U,10000,989,0.0989,0.093049,0.104751
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.2,t de Welch,10000,345,0.0345,0.030923,0.038077
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.2,Mann-Whitney U,10000,2470,0.247,0.238547,0.255453
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.3,t de Welch,10000,188,0.0188,0.016138,0.021462
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.3,Mann-Whitney U,10000,4993,0.4993,0.4895,0.5091
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.5,t de Welch,10000,147,0.0147,0.012341,0.017059
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.5,Mann-Whitney U,10000,9175,0.9175,0.912108,0.922892
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.8,t de Welch,10000,471,0.0471,0.042948,0.051252
+outliers_extremos,"Outliers extremos (σ × 1,5)",0.8,Mann-Whitney U,10000,9997,0.9997,0.999361,1.0
+outliers_extremos,"Outliers extremos (σ × 1,5)",1.0,t de Welch,10000,939,0.0939,0.088183,0.099617
+outliers_extremos,"Outliers extremos (σ × 1,5)",1.0,Mann-Whitney U,10000,10000,1.0,1.0,1.0

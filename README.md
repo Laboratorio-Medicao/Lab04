@@ -118,3 +118,16 @@ requirements.txt
 
 - **Repositório:** https://github.com/Laboratorio-Medicao/Lab04  
 - **GitHub Projects (Kanban):** https://github.com/orgs/Laboratorio-Medicao/projects/1
+
+---
+
+## Q3 — Violação de pressuposto (erro tipo I e poder)
+
+```bash
+python src/simulacao_q3.py
+```
+
+Repete Q1 e Q2 em duas situações adversas ao t de Welch (amostras pequenas, n = 10 por grupo; e
+outliers extremos, σ de ln T × 1,5) e compara com a situação normal. Semente 42, 10.000 repetições
+por tamanho de efeito d ∈ {0; 0,1; 0,2; 0,3; 0,5; 0,8; 1,0}. Saídas para G3 e G4:
+`data/simulacao_q3_poder.csv` e `data/simulacao_q3_comparacao.csv`.
