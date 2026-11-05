@@ -1,0 +1,3 @@
+teste,situacao,repeticoes,rejeicoes,proporcao_rejeicoes,ic95_inferior,ic95_superior,ic95_meia_largura_pp
+t de Welch,H₀ verdadeira,10000,1120,0.112,0.105819,0.118181,0.618107
+Mann-Whitney U,H₀ verdadeira,10000,501,0.0501,0.045824,0.054376,0.427569
