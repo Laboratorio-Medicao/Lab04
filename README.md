@@ -121,6 +121,17 @@ requirements.txt
 
 ---
 
+## Q2 — Poder (efeitos crescentes)
+
+```bash
+python src/simulacao_q2.py
+```
+
+Curva de poder do t de Welch e do Mann-Whitney para d ∈ {0; 0,1; 0,2; 0,3; 0,5; 0,8; 1,0} (7 tamanhos,
+começando em zero), com 10.000 repetições por d e semente 42. Em d = 0 a proporção é o erro tipo I (Q1).
+Inclui uma sensibilidade com os tempos truncados no máximo dos dados reais. Saídas para o G4:
+`data/simulacao_q2_poder.csv` e `data/simulacao_q2_sensibilidade.csv`.
+
 ## Q3 — Violação de pressuposto (erro tipo I e poder)
 
 ```bash
