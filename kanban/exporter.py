@@ -22,11 +22,14 @@ class CsvExporter:
     def __init__(self, output_dir):
         self._output_dir = Path(output_dir)
 
-    def export(self, items, snapshot_date=None):
+    def export(self, items, snapshot_date=None, suffix=None):
         if snapshot_date is None:
             snapshot_date = date.today()
 
-        output_path = self._output_dir / f"kanban-snapshot-{snapshot_date.isoformat()}.csv"
+        name = f"kanban-snapshot-{snapshot_date.isoformat()}"
+        if suffix:
+            name = f"{name}-{suffix}"
+        output_path = self._output_dir / f"{name}.csv"
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         with output_path.open("w", newline="", encoding="utf-8") as csv_file:
