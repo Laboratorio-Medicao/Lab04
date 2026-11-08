@@ -16,6 +16,8 @@ import streamlit as st
 from streamlit import runtime
 
 RAIZ = Path(__file__).resolve().parent
+URL_REPOSITORIO = "https://github.com/Laboratorio-Medicao/Lab04"
+URL_PROJECTS = "https://github.com/orgs/Laboratorio-Medicao/projects/1"
 sys.path.insert(0, str(RAIZ / "src"))
 
 from graficos import (  # noqa: E402
@@ -197,6 +199,7 @@ def renderizar() -> None:
     st.set_page_config(page_title="LAB04", layout="wide")
     st.title("LAB04: Testes de Hipótese por Dentro")
     st.caption("t de Welch × Mann-Whitney no tempo até o merge de PRs de pallets/flask")
+    st.markdown(f"[Repositório]({URL_REPOSITORIO}) · [GitHub Projects (Kanban)]({URL_PROJECTS})")
     secao_1()
     secao_2()
     secao_3()

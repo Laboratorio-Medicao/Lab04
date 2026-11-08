@@ -20,11 +20,22 @@ PRs abertos por dependabot (bot) versus PRs abertos por humanos.
 
 ### Pré-requisitos
 
+- Python 3.11 ou superior
+- `pip`
+
+### Instalação
+
+Recomendado, em ambiente virtual:
+
 ```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Autenticação GitHub necessária para coletar dados reais:
+Os CSVs e o JSON em `data/` já estão versionados: o dashboard roda sem token do GitHub.
+
+A autenticação no GitHub só é necessária para recoletar os dados reais:
 
 ```bash
 gh auth login   # ou exporte GITHUB_TOKEN
