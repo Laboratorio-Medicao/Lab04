@@ -129,20 +129,25 @@ def secao_3() -> None:
 
 
 def texto_g3(dados: pd.DataFrame) -> str:
-    def p(situacao: str, teste: str) -> str:
-        v = float(dados[(dados["situacao"] == situacao) & (dados["teste"] == teste)]["proporcao_rejeicoes"].iloc[0])
-        return f"{v:.1%}".replace(".", ",")
+    def v(situacao: str, teste: str) -> float:
+        return float(dados[(dados["situacao"] == situacao) & (dados["teste"] == teste)]["proporcao_rejeicoes"].iloc[0])
 
+    def p(x: float) -> str:
+        return f"{x:.1%}".replace(".", ",")
+
+    def classe(x: float) -> str:
+        return "liberal" if x > 0.06 else "conservador" if x < 0.04 else "perto de 5%"
+
+    w = {s: v(s, "t de Welch") for s in ("H₀ verdadeira", "amostras_pequenas", "outliers_extremos")}
+    mw = {s: v(s, "Mann-Whitney U") for s in w}
     return (
-        f"Na situação normal, o t de Welch rejeitou H₀ em {p('H₀ verdadeira', 't de Welch')} das amostras — "
-        f"bem acima dos 5% esperados: o teste é **liberal** neste cenário porque os dados são muito assimétricos "
-        f"e a aproximação normal da estatística t falha. O Mann-Whitney ficou em {p('H₀ verdadeira', 'Mann-Whitney U')}, "
-        "próximo do nominal. "
-        f"Com amostras pequenas (n = 10), o Welch caiu para {p('amostras_pequenas', 't de Welch')} — agora **conservador** — "
-        f"enquanto o Mann-Whitney se manteve em {p('amostras_pequenas', 'Mann-Whitney U')}. "
-        f"Com outliers extremos, o Welch voltou a {p('outliers_extremos', 't de Welch')} e o Mann-Whitney a "
-        f"{p('outliers_extremos', 'Mann-Whitney U')}: o Mann-Whitney controla o erro tipo I de forma mais estável "
-        "em todos os cenários testados."
+        f"O Mann-Whitney ficou perto de 5% nas três situações, entre {p(min(mw.values()))} e {p(max(mw.values()))}. "
+        f"O t de Welch foi o que se desviou: {classe(w['H₀ verdadeira'])} na situação normal ({p(w['H₀ verdadeira'])}), "
+        f"{classe(w['amostras_pequenas'])} com amostras pequenas ({p(w['amostras_pequenas'])}) e "
+        f"{classe(w['outliers_extremos'])} com outliers extremos ({p(w['outliers_extremos'])}). "
+        "O excesso de rejeições do Welch vem da forte assimetria dos dados, que prejudica a aproximação normal da "
+        "estatística t. "
+        "Com n = 10 essa aproximação piora ainda mais, e o teste quase nunca rejeita."
     )
 
 
