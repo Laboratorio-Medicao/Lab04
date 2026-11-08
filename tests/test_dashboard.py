@@ -149,3 +149,23 @@ def test_erro_nos_csvs_de_poder_aparece_na_secao_5_sem_derrubar_as_demais():
     assert [h.value for h in at.header] == SECOES
     assert len(at.error) == 1 and "G4" in at.error[0].value
     assert not [i for i in secao(at, "5. Poder") if i.type == "plotly_chart"]
+
+
+def dados_erro_tipo_i():
+    return dashboard.dados_g3(pd.read_csv(RAIZ / "data" / "simulacao_q1_resumo.csv"),
+                              pd.read_csv(RAIZ / "data" / "simulacao_q3_comparacao.csv"))
+
+
+def test_secao_4_integra_o_g3_o_texto_e_a_tabela():
+    itens = secao(abrir(), "4. Erro tipo I")
+    graficos = [i for i in itens if i.type == "plotly_chart"]
+    assert len(graficos) == 1 and graficos[0].proto.theme == ""
+    assert dashboard.texto_g3(dados_erro_tipo_i()) in [i.value for i in itens if i.type == "markdown"]
+    assert [i.label for i in itens if i.type == "expander"] == ["Ver dados do G3"]
+
+
+def test_texto_g3_tem_ate_quatro_frases_e_aponta_o_teste_que_se_desviou():
+    texto = dashboard.texto_g3(dados_erro_tipo_i())
+    assert 2 <= len(re.findall(r"[.!?](?:\s|$)", texto)) <= 4
+    for trecho in ("4,3%", "5,0%", "11,2%", "0,5%", "8,5%", "liberal", "conservador"):
+        assert trecho in texto
