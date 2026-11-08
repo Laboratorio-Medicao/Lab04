@@ -169,3 +169,8 @@ def test_texto_g3_tem_ate_quatro_frases_e_aponta_o_teste_que_se_desviou():
     assert 2 <= len(re.findall(r"[.!?](?:\s|$)", texto)) <= 4
     for trecho in ("4,3%", "5,0%", "11,2%", "0,5%", "8,5%", "liberal", "conservador"):
         assert trecho in texto
+
+
+def test_topo_tem_links_do_repositorio_e_do_projects():
+    markdowns = [m.value for m in abrir().main.markdown]
+    assert any(dashboard.URL_REPOSITORIO in m and dashboard.URL_PROJECTS in m for m in markdowns)
