@@ -103,7 +103,45 @@ def dados_g2() -> tuple[dict, dict]:
 
 def secao_1() -> None:
     st.header("1. Cenário")
-    em_construcao("#20")
+    parametros = carregar_parametros()
+    n_bot = parametros["n"]["com_bot"]
+    n_humano = parametros["n"]["sem_bot"]
+    n_total = n_bot + n_humano
+    st.markdown(
+        "**Pergunta:** o tempo até o merge de PRs abertos pelo Dependabot difere do tempo "
+        "até o merge de PRs abertos por humanos no repositório "
+        "[pallets/flask](https://github.com/pallets/flask)?"
+    )
+    st.markdown(
+        "**Fonte dos dados:** GitHub GraphQL API — PRs merged criados entre 2021-04-28 e 2024-08-01 "
+        f"(janela comum aos dois grupos). Total: **{n_total} PRs** — "
+        f"**{n_bot}** abertos pelo Dependabot e **{n_humano}** por humanos."
+    )
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**H₀ (hipótese nula)**")
+        st.markdown(
+            "Os dois grupos têm a mesma distribuição de tempo até o merge: "
+            "não há diferença sistemática entre PRs do bot e de humanos."
+        )
+        st.markdown("| Teste | H₀ |\n|---|---|\n"
+                    "| t de Welch | μ_bot = μ_humano |\n"
+                    "| Mann-Whitney | P(T_bot > T_humano) = P(T_bot < T_humano) |")
+    with col2:
+        st.markdown("**H₁ (hipótese alternativa) — bicaudal**")
+        st.markdown(
+            "Os grupos têm distribuições diferentes: um tende a ser mergeado "
+            "mais rápido (ou mais devagar) que o outro. "
+            "Bicaudal porque não há razão a priori para assumir a direção do efeito."
+        )
+        st.markdown("| Teste | H₁ |\n|---|---|\n"
+                    "| t de Welch | μ_bot ≠ μ_humano |\n"
+                    "| Mann-Whitney | P(T_bot > T_humano) ≠ P(T_bot < T_humano) |")
+    st.caption(
+        "Par de testes: P1 — t de Welch × Mann-Whitney U. "
+        "Nível de significância: α = 5%. Testes aplicados ao tempo em horas, sem transformação."
+    )
+
 
 
 def secao_2() -> None:
