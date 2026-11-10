@@ -114,12 +114,15 @@ python -m pytest
 ## Estrutura do repositório
 
 ```
-data/           dados reais coletados (CSV) e parâmetros da simulação (JSON)
-docs/           cenário, kanban snapshots e apresentação
-src/            código de coleta, simulação e testes
-tests/          testes automatizados (pytest)
-.streamlit/     configuração do dashboard
-dashboard.py    dashboard interativo (entrega final)
+data/                   dados reais (CSV), parâmetros da simulação (JSON) e saídas das simulações Q1–Q3
+data/kanban-snapshots/  snapshots do GitHub Projects (Kanban)
+docs/                   cenário (cenario.md)
+kanban/                 código que exporta os snapshots do Kanban (`python -m kanban.snapshot`)
+src/                    código de coleta, simulação, testes estatísticos e gráficos
+tests/                  testes automatizados (pytest)
+.github/workflows/      CI (pytest em push no main e em PRs)
+.streamlit/             configuração do dashboard
+dashboard.py            dashboard interativo (entrega final)
 requirements.txt
 ```
 
@@ -131,6 +134,16 @@ requirements.txt
 - **GitHub Projects (Kanban):** https://github.com/orgs/Laboratorio-Medicao/projects/1
 
 ---
+
+## Q1 — Erro tipo I
+
+```bash
+python src/simulacao_q1.py
+```
+
+Aplica o t de Welch e o Mann-Whitney a 10.000 conjuntos sorteados sob H₀ verdadeira (semente 42) e
+registra a proporção de p < 5%. Saídas para o G3: `data/simulacao_q1_pvalores.csv` e
+`data/simulacao_q1_resumo.csv`.
 
 ## Q2 — Poder (efeitos crescentes)
 
