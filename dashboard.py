@@ -24,6 +24,7 @@ from graficos import (  # noqa: E402
     PAINEIS_G4, amostras_g1, bordas_log, dados_g3, dados_g4, estatisticas_h0, exemplo_g2,
     figura_g1, figura_g2, figura_g3, figura_g4, tabela_g1, tabela_g3, tabela_g4,
 )
+from graficos import resultado_g5, tabela_g5  # noqa: E402
 from simulacao import carregar_parametros  # noqa: E402
 
 
@@ -185,14 +186,151 @@ def secao_5() -> None:
         st.dataframe(tabela_g4(dados).style.format(precision=1, decimal=","), hide_index=True)
 
 
+def formatar_p(p: float) -> str:
+    return "< 0,001" if p < 0.001 else f"{p:.3f}".replace(".", ",")
+
+
+def p_igual(p: float) -> str:
+    """'p < 0,001' ou 'p = 0,983'."""
+    return f"p {formatar_p(p)}" if p < 0.001 else f"p = {formatar_p(p)}"
+
+
+def _num(x: float, casas: int = 2) -> str:
+    return f"{x:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _magnitude(valor: float, limites: tuple[float, float, float]) -> str:
+    a = abs(valor)
+    return ("desprezível" if a < limites[0] else "pequeno" if a < limites[1]
+            else "médio" if a < limites[2] else "grande")
+
+
+def texto_secao_6(res) -> str:
+    w, mw = res.welch, res.mann_whitney
+    if w.rejeita_h0 and mw.rejeita_h0:
+        acordo = "Os dois testes rejeitam H₀ a α = 5%, então chegam à mesma conclusão."
+    elif not w.rejeita_h0 and not mw.rejeita_h0:
+        acordo = "Como nenhum dos dois testes rejeita H₀ a α = 5%, eles chegam à mesma conclusão."
+    else:
+        sim, nao = (w, mw) if w.rejeita_h0 else (mw, w)
+        acordo = f"As conclusões divergem: a α = 5%, o {sim.nome} rejeita H₀ e o {nao.nome} não rejeita."
+    return (
+        f"Com {w.n_bot} PRs do Dependabot e {w.n_humano} PRs humanos, o t de Welch vale {_num(w.estatistica)} "
+        f"({p_igual(w.p_valor)}) e o U do Mann-Whitney vale {_num(mw.estatistica, 1)} ({p_igual(mw.p_valor)}). "
+        f"{acordo} "
+        f"O Cohen's d de {_num(w.tamanho_efeito)} indica um efeito {_magnitude(w.tamanho_efeito, (0.2, 0.5, 0.8))} "
+        f"na diferença de médias, e o r de {_num(mw.tamanho_efeito, 3)} indica um efeito "
+        f"{_magnitude(mw.tamanho_efeito, (0.1, 0.3, 0.5))} na tendência de um PR de um grupo demorar mais que o "
+        "do outro. O Welch reage às médias, que poucos PRs muito lentos puxam para cima, enquanto o Mann-Whitney "
+        "compara posições e quase não é afetado por esses outliers."
+    )
+
+
+def _taxa(dados: pd.DataFrame, situacao: str, teste: str, d: float | None = None) -> float:
+    filtro = (dados["situacao"] == situacao) & (dados["teste"] == teste)
+    if d is not None:
+        filtro &= dados["d"] == d
+    return float(dados.loc[filtro, "proporcao_rejeicoes"].iloc[0])
+
+
+TESTES = ("t de Welch", "Mann-Whitney U")
+NOMES = {"t de Welch": "t de Welch", "Mann-Whitney U": "Mann-Whitney"}
+
+
+def recomendado(g3: pd.DataFrame, g4: pd.DataFrame) -> str:
+    """Teste com erro tipo I mais perto de 5% em média nas situações simuladas; no empate, o de mais poder."""
+    desvio = {t: (g3.loc[g3["teste"] == t, "proporcao_rejeicoes"] - 0.05).abs().mean() for t in TESTES}
+    poder = {t: g4.loc[(g4["teste"] == t) & (g4["d"] > 0), "proporcao_rejeicoes"].mean() for t in TESTES}
+    return min(TESTES, key=lambda t: (round(desvio[t], 3), -poder[t]))
+
+
+def texto_secao_7(res, g3: pd.DataFrame, g4: pd.DataFrame) -> list[str]:
+    def p(x: float) -> str:
+        return f"{x:.1%}".replace(".", ",")
+
+    escolhido = recomendado(g3, g4)
+    outro = next(t for t in TESTES if t != escolhido)
+    erros = {t: [_taxa(g3, s, t) for s in g3["situacao"].unique()] for t in TESTES}
+    d_ref = 0.5
+    poder = {t: _taxa(g4, "normal", t, d_ref) for t in TESTES}
+    def classe(x: float) -> str:
+        return "liberal" if x > 0.06 else "conservador" if x < 0.04 else "perto de 5%"
+
+    def welch_poder(situacao: str, d: float) -> float:
+        return _taxa(g4, situacao, "t de Welch", d)
+
+    w_normal = _taxa(g3, "H₀ verdadeira", "t de Welch")
+    w_outliers = _taxa(g3, "outliers_extremos", "t de Welch")
+    w_pequenas = _taxa(g3, "amostras_pequenas", "t de Welch")
+    ds = sorted(float(d) for d in g4["d"].unique() if d > 0)
+    d_min, d_seg, d_max = ds[0], ds[1], ds[-1]
+    d_min_out = min(ds, key=lambda d: welch_poder("outliers_extremos", d))
+    min_out = welch_poder("outliers_extremos", d_min_out)
+    real = {"t de Welch": res.welch, "Mann-Whitney U": res.mann_whitney}
+    achado = ("A simulação confirmou a expectativa" if escolhido == "Mann-Whitney U"
+              else "A simulação não confirmou a expectativa")
+    evidencia = "há evidência" if real[escolhido].rejeita_h0 else "não há evidência"
+    return [
+        "**Expectativa.** Antes de simular, esperávamos que o Mann-Whitney fosse mais confiável nestes dados, "
+        "porque o tempo até o merge é muito assimétrico e tem outliers. Também esperávamos que o t de Welch "
+        "tivesse erro tipo I fora de 5%, já que a aproximação normal da estatística t sofre com essa assimetria.",
+        f"**Achados.** {achado}: sob H₀, o Mann-Whitney rejeitou entre {p(min(erros['Mann-Whitney U']))} e "
+        f"{p(max(erros['Mann-Whitney U']))} das vezes nas situações simuladas, enquanto o t de Welch foi "
+        f"{classe(w_normal)} na situação normal ({p(w_normal)}), {classe(w_outliers)} com outliers extremos "
+        f"({p(w_outliers)}) e {classe(w_pequenas)} com amostras pequenas ({p(w_pequenas)}). "
+        f"Com d = {_num(d_ref, 1)} na situação normal, o poder foi de {p(poder['Mann-Whitney U'])} no Mann-Whitney "
+        f"e de {p(poder['t de Welch'])} no t de Welch, cujo poder nem cresce sempre com o efeito: na situação "
+        f"normal cai de {p(welch_poder('normal', d_min))} em d = {_num(d_min, 1)} para "
+        f"{p(welch_poder('normal', d_seg))} em d = {_num(d_seg, 1)}, e com outliers extremos desce a "
+        f"{p(min_out)} em d = {_num(d_min_out, 1)} e só chega a {p(welch_poder('outliers_extremos', d_max))} em "
+        f"d = {_num(d_max, 1)}. "
+        f"Nos dados reais, o {NOMES[escolhido]} deu {p_igual(real[escolhido].p_valor)} e o {NOMES[outro]}, "
+        f"{p_igual(real[outro].p_valor)}.",
+        f"**Recomendação.** Recomendamos o {NOMES[escolhido]} para comparar o tempo até o merge de PRs do "
+        "Dependabot e de humanos, porque nas situações simuladas ele manteve o erro tipo I mais perto de 5% e "
+        f"teve mais poder, enquanto o {NOMES[outro]} se desviou de 5% para os dois lados e teve poder baixo e instável "
+        f"nas situações simuladas. Por ele, {evidencia} a α = 5% de que um grupo tende a ser mergeado mais rápido que "
+        "o outro.",
+        "**Quando mudaria.** Se a pergunta fosse sobre a média, por exemplo o tempo total de espera somado de "
+        "todos os PRs, o t de Welch seria o teste adequado, porque o Mann-Whitney não compara médias. "
+        "O Welch também ficaria mais atraente com amostras grandes e pouco assimétricas, em que a aproximação "
+        "normal da estatística t funciona bem.",
+        "**Limitação.** Os dados vêm de um único repositório (pallets/flask), e a simulação usa uma mistura de "
+        "lognormais estimada desses mesmos dados, então os resultados podem não valer para outros projetos. "
+        "Além disso, o Mann-Whitney testa se um grupo tende a ter valores maiores que o outro, e não a "
+        "diferença de médias, o que limita o que se conclui sobre o tempo médio.",
+    ]
+
+
 def secao_6() -> None:
     st.header("6. Dados reais")
-    em_construcao("#22")
+    try:
+        res = resultado_g5(pd.read_csv(RAIZ / "data" / "dados_reais.csv"))
+    except (ValueError, OSError) as erro:
+        st.error(f"Não foi possível aplicar os testes a data/dados_reais.csv: {erro}")
+        return
+    st.dataframe(
+        tabela_g5(res).style.format({"Estatística": _num, "p-valor": formatar_p,
+                                     "Tamanho do efeito": lambda x: _num(x, 3)}),
+        hide_index=True,
+    )
+    st.caption("Testes bicaudais, aplicados com a mesma função usada na simulação.")
+    st.write(texto_secao_6(res))
 
 
 def secao_7() -> None:
     st.header("7. Conclusão")
-    em_construcao("#22")
+    try:
+        res = resultado_g5(pd.read_csv(RAIZ / "data" / "dados_reais.csv"))
+        g3 = dados_g3(pd.read_csv(RAIZ / "data" / "simulacao_q1_resumo.csv"),
+                      pd.read_csv(RAIZ / "data" / "simulacao_q3_comparacao.csv"))
+        g4 = dados_g4(pd.read_csv(RAIZ / "data" / "simulacao_q2_poder.csv"),
+                      pd.read_csv(RAIZ / "data" / "simulacao_q3_poder.csv"))
+    except (ValueError, OSError) as erro:
+        st.error(f"Não foi possível montar a conclusão com os CSVs de data/: {erro}")
+        return
+    for bloco in texto_secao_7(res, g3, g4):
+        st.markdown(bloco)
 
 
 def renderizar() -> None:

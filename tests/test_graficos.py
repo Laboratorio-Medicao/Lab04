@@ -321,3 +321,38 @@ def test_tabela_g3_tem_uma_linha_por_situacao():
     tabela = gr.tabela_g3(gr.dados_g3(_q1_resumo(), _q3_comparacao()))
     assert len(tabela) == 3
     assert {"t de Welch (%)", "Mann-Whitney U (%)"} <= set(tabela.columns)
+
+
+# ---------------------------------------------------------------------------
+# G5: testes nos dados reais (#22)
+# ---------------------------------------------------------------------------
+
+from testes import aplicar_testes  # noqa: E402
+
+RAIZ_G5 = Path(__file__).resolve().parent.parent
+
+
+def dados_reais():
+    return pd.read_csv(RAIZ_G5 / "data" / "dados_reais.csv")
+
+
+def test_resultado_g5_igual_a_aplicar_testes_direto():
+    dados = dados_reais()
+    esperado = aplicar_testes(gr.horas_do_grupo(dados, "com_bot"), gr.horas_do_grupo(dados, "sem_bot"))
+    res = gr.resultado_g5(dados)
+    assert res.cenario == "real"
+    for nome in ("welch", "mann_whitney"):
+        a, b = getattr(res, nome), getattr(esperado, nome)
+        assert (a.estatistica, a.p_valor, a.tamanho_efeito) == (b.estatistica, b.p_valor, b.tamanho_efeito)
+
+
+def test_tabela_g5_tem_duas_linhas_e_colunas_esperadas():
+    res = gr.resultado_g5(dados_reais())
+    tabela = gr.tabela_g5(res)
+    assert list(tabela.columns) == ["Teste", "Estatística", "p-valor", "Tamanho do efeito",
+                                    "Métrica do efeito", "Conclusão a α = 5%"]
+    assert list(tabela["Teste"]) == ["t de Welch", "Mann-Whitney U"]
+    assert list(tabela["Estatística"]) == [res.welch.estatistica, res.mann_whitney.estatistica]
+    assert list(tabela["Tamanho do efeito"]) == [res.welch.tamanho_efeito, res.mann_whitney.tamanho_efeito]
+    for teste, conclusao in zip((res.welch, res.mann_whitney), tabela["Conclusão a α = 5%"]):
+        assert conclusao == ("Rejeita H₀" if teste.p_valor < 0.05 else "Não rejeita H₀")
