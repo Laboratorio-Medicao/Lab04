@@ -14,6 +14,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from estimar_parametros import amostrar_mistura, log_positivo
+from testes import ALPHA, ResultadoTestes, aplicar_testes
 
 # Mesma cor para cada grupo e teste em todos os gráficos do projeto.
 # Validada com validate_palette.js em superfície clara, para pares adjacentes:
@@ -418,3 +419,28 @@ def figura_g4(dados: pd.DataFrame, alpha: float = 0.05) -> go.Figure:
     figura.update_yaxes(gridcolor=GRADE, zeroline=False, range=[0, 1], tickformat=".0%")
     figura.update_yaxes(title_text="Proporção de rejeições (poder)", row=1, col=1)
     return figura
+
+
+# ---------------------------------------------------------------------------
+# G5: os dois testes aplicados aos dados reais
+# ---------------------------------------------------------------------------
+
+
+def resultado_g5(dados_reais: pd.DataFrame) -> ResultadoTestes:
+    """Aplica Welch e Mann-Whitney a Dependabot x humanos com a mesma função da simulação."""
+    return aplicar_testes(horas_do_grupo(dados_reais, "com_bot"), horas_do_grupo(dados_reais, "sem_bot"),
+                          cenario="real")
+
+
+def tabela_g5(res: ResultadoTestes) -> pd.DataFrame:
+    return pd.DataFrame([
+        {
+            "Teste": teste.nome,
+            "Estatística": teste.estatistica,
+            "p-valor": teste.p_valor,
+            "Tamanho do efeito": teste.tamanho_efeito,
+            "Métrica do efeito": teste.nome_efeito,
+            "Conclusão a α = 5%": "Rejeita H₀" if teste.p_valor < ALPHA else "Não rejeita H₀",
+        }
+        for teste in (res.welch, res.mann_whitney)
+    ])

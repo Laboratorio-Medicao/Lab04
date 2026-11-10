@@ -99,7 +99,8 @@ def test_erro_nos_dados_aparece_na_secao_2_sem_derrubar_as_demais():
         at = abrir()
     assert not at.exception
     assert [h.value for h in at.header] == SECOES
-    assert len(at.error) == 1 and "data/dados_reais.csv" in at.error[0].value
+    erros_2 = [i for i in secao(at, "2. Os dados") if i.type == "error"]
+    assert len(erros_2) == 1 and "data/dados_reais.csv" in erros_2[0].value
     assert not [i for i in secao(at, "2. Os dados") if i.type == "plotly_chart"]
 
 
@@ -147,7 +148,8 @@ def test_erro_nos_csvs_de_poder_aparece_na_secao_5_sem_derrubar_as_demais():
         at = abrir()
     assert not at.exception
     assert [h.value for h in at.header] == SECOES
-    assert len(at.error) == 1 and "G4" in at.error[0].value
+    erros_5 = [i for i in secao(at, "5. Poder") if i.type == "error"]
+    assert len(erros_5) == 1 and "G4" in erros_5[0].value
     assert not [i for i in secao(at, "5. Poder") if i.type == "plotly_chart"]
 
 
@@ -174,3 +176,73 @@ def test_texto_g3_tem_ate_quatro_frases_e_aponta_o_teste_que_se_desviou():
 def test_topo_tem_links_do_repositorio_e_do_projects():
     markdowns = [m.value for m in abrir().main.markdown]
     assert any(dashboard.URL_REPOSITORIO in m and dashboard.URL_PROJECTS in m for m in markdowns)
+
+
+# ---------------------------------------------------------------------------
+# Seções 6 e 7 (#22)
+# ---------------------------------------------------------------------------
+
+from testes import ResultadoTeste, ResultadoTestes  # noqa: E402
+
+
+def fabricar(p_welch, p_mw, d=0.3, r=0.2):
+    def teste(nome, p, efeito, nome_efeito):
+        return ResultadoTeste(nome, 1.0, p, p < 0.05, efeito, nome_efeito, 60, 320)
+    return ResultadoTestes(teste("t de Welch", p_welch, d, "Cohen's d"),
+                           teste("Mann-Whitney U", p_mw, r, "r (Z/√N)"), "real")
+
+
+def resultado_real():
+    return dashboard.resultado_g5(pd.read_csv(RAIZ / "data" / "dados_reais.csv"))
+
+
+def test_secao_6_tem_tabela_texto_e_nao_esta_em_construcao():
+    itens = secao(abrir(), "6. Dados reais")
+    assert not [i for i in itens if i.type in ("info", "error")]
+    assert len([i for i in itens if i.type == "arrow_data_frame" or i.type == "dataframe"]) == 1
+    assert dashboard.texto_secao_6(resultado_real()) in [i.value for i in itens if i.type == "markdown"]
+
+
+def test_secoes_6_e_7_sem_info():
+    at = abrir()
+    assert not any("#22" in i.value for i in at.info)
+
+
+def test_texto_secao_6_cita_os_dois_p_valores_e_a_divergencia_real():
+    res = resultado_real()
+    texto = dashboard.texto_secao_6(res)
+    assert dashboard.formatar_p(res.welch.p_valor) in texto
+    assert dashboard.formatar_p(res.mann_whitney.p_valor) in texto
+    assert "divergem" in texto
+
+
+def test_texto_secao_6_caso_concordante_e_divergente():
+    assert "Os dois testes rejeitam H₀" in dashboard.texto_secao_6(fabricar(0.001, 0.01))
+    assert "nenhum dos dois testes rejeita H₀" in dashboard.texto_secao_6(fabricar(0.3, 0.6))
+    assert "divergem" in dashboard.texto_secao_6(fabricar(0.3, 0.01))
+
+
+def test_p_muito_pequeno_aparece_como_menor_que_0001():
+    assert dashboard.formatar_p(1e-5) == "< 0,001"
+    assert dashboard.formatar_p(0.9826) == "0,983"
+    assert "< 0,001" in dashboard.texto_secao_6(fabricar(1e-6, 0.5))
+
+
+def test_secao_7_tem_cinco_blocos_e_recomenda_um_teste():
+    itens = secao(abrir(), "7. Conclusão")
+    texto = "\n".join(i.value for i in itens if i.type == "markdown")
+    for bloco in ("**Expectativa.**", "**Achados.**", "**Recomendação.**", "**Quando mudaria.**", "**Limitação.**"):
+        assert bloco in texto
+    assert "Recomendamos o Mann-Whitney" in texto
+    assert "{evidencia}" not in texto and "não há evidência a α = 5%" in texto
+    assert "Em construção" not in texto
+    assert not [i for i in itens if i.type == "info"]
+
+
+def test_texto_secao_7_reflete_os_desvios_e_o_poder_nao_monotono_do_welch():
+    g4 = dados_poder()
+    blocos = dashboard.texto_secao_7(resultado_real(), dados_erro_tipo_i(), g4)
+    achados = blocos[1]
+    for trecho in ("liberal na situação normal (11,2%)", "liberal com outliers extremos (8,5%)",
+                   "conservador com amostras pequenas (0,5%)", "5,1%", "2,7%", "1,5%", "9,4%"):
+        assert trecho in achados
