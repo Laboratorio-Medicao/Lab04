@@ -3,7 +3,8 @@ Q3 — Violação de pressuposto: repete Q1 (erro tipo I) e Q2 (curva de poder) 
 situações adversas ao t de Welch, e compara com a situação normal.
 
 Situações (cada uma com sua própria semente 42, um único gerador por situação):
-  normal             dados do cenário (n = 60 × 320); referência de Q1 e Q2
+  normal             cenário base (n = 60 × 320), que já é muito assimétrico: referência de
+                     Q1 e Q2. O id "normal" é histórico; não é uma situação com dados normais
   amostras_pequenas  n = 10 por grupo (n ≤ 10): o TCL deixa de proteger o t de Welch
   outliers_extremos  cauda muito mais pesada (σ de ln T × 1,5) com n do cenário:
                      a média passa a ser dominada por poucos valores extremos
@@ -39,7 +40,7 @@ SAIDA_COMPARACAO = os.path.join(RAIZ, "data", "simulacao_q3_comparacao.csv")
 
 # n=None mantém o n do cenário (60 com bot × 320 sem bot)
 SITUACOES = {
-    "normal": {"rotulo": "Normal (cenário)", "n_bot": None, "n_humano": None, "fator_sigma": 1.0},
+    "normal": {"rotulo": "Cenário base (já assimétrico)", "n_bot": None, "n_humano": None, "fator_sigma": 1.0},
     "amostras_pequenas": {"rotulo": "Amostras pequenas (n = 10)", "n_bot": 10, "n_humano": 10, "fator_sigma": 1.0},
     "outliers_extremos": {"rotulo": "Outliers extremos (σ × 1,5)", "n_bot": None, "n_humano": None, "fator_sigma": 1.5},
 }

@@ -41,14 +41,30 @@ A autenticação no GitHub só é necessária para recoletar os dados reais:
 gh auth login   # ou exporte GITHUB_TOKEN
 ```
 
-### Comando único — dashboard completo
+### Comando único — pipeline completo (do início ao fim)
+
+```bash
+python -m executar_tudo
+```
+
+Regenera, em ordem, os parâmetros da simulação, os dados simulados, Q1, Q2, Q3 e a simulação
+complementar, e grava tudo em `data/` (semente fixa 42; duas execuções geram arquivos idênticos).
+Leva cerca de 9 minutos. Opções:
+
+```bash
+python -m executar_tudo --dashboard   # roda o pipeline e abre o dashboard no fim
+python -m executar_tudo --coletar     # inclui a coleta dos dados reais (exige gh auth login)
+```
+
+### Abrir só o dashboard
 
 ```bash
 python -m dashboard
 ```
 
-Execute na raiz do repositório. O dashboard fica disponível em `http://localhost:8501`. A URL
-também aparece no terminal, e o navegador não abre sozinho. Para encerrar, use `Ctrl+C`.
+Lê os CSVs já versionados em `data/`, sem recalcular nada. Execute na raiz do repositório. O
+dashboard fica disponível em `http://localhost:8501`. A URL também aparece no terminal, e o
+navegador não abre sozinho. Para encerrar, use `Ctrl+C`.
 
 ---
 
@@ -114,7 +130,7 @@ python -m pytest
 ## Estrutura do repositório
 
 ```
-data/                   dados reais (CSV), parâmetros da simulação (JSON) e saídas das simulações Q1–Q3
+data/                   dados reais (CSV), parâmetros da simulação (JSON) e saídas das simulações (Q1–Q3 e complementar)
 data/kanban-snapshots/  snapshots do GitHub Projects (Kanban)
 docs/                   cenário (cenario.md)
 kanban/                 código que exporta os snapshots do Kanban (`python -m kanban.snapshot`)
@@ -122,6 +138,7 @@ src/                    código de coleta, simulação, testes estatísticos e g
 tests/                  testes automatizados (pytest)
 .github/workflows/      CI (pytest em push no main e em PRs)
 .streamlit/             configuração do dashboard
+executar_tudo.py        comando único: roda o pipeline inteiro (`python -m executar_tudo`)
 dashboard.py            dashboard interativo (entrega final)
 requirements.txt
 ```
@@ -130,6 +147,7 @@ requirements.txt
 
 ## Links
 
+- **Dashboard (publicado):** _preencher após a publicação no Streamlit Community Cloud_  
 - **Repositório:** https://github.com/Laboratorio-Medicao/Lab04  
 - **GitHub Projects (Kanban):** https://github.com/orgs/Laboratorio-Medicao/projects/1
 
@@ -163,6 +181,19 @@ python src/simulacao_q3.py
 ```
 
 Repete Q1 e Q2 em duas situações adversas ao t de Welch (amostras pequenas, n = 10 por grupo; e
-outliers extremos, σ de ln T × 1,5) e compara com a situação normal. Semente 42, 10.000 repetições
+outliers extremos, σ de ln T × 1,5) e compara com o cenário base, que já é muito assimétrico (não é uma
+situação com dados normais). Semente 42, 10.000 repetições
 por tamanho de efeito d ∈ {0; 0,1; 0,2; 0,3; 0,5; 0,8; 1,0}. Saídas para G3 e G4:
 `data/simulacao_q3_poder.csv` e `data/simulacao_q3_comparacao.csv`.
+
+## Complementar — efeitos negativos e α = 1%
+
+```bash
+python src/simulacao_complementar.py
+```
+
+Repete a varredura de Q2 e Q3 com os mesmos d positivos (reproduzem `simulacao_q3_poder.csv`) e
+acrescenta os d negativos (Dependabot mais rápido, o sentido observado nos dados reais). Registra
+também a proporção de rejeições a α = 1% e a parte das rejeições com o Dependabot parecendo mais
+rápido. Semente 42, 10.000 repetições por d e situação. Saída: `data/simulacao_complementar.csv`
+(usada nas seções 4 e 5 do dashboard).
