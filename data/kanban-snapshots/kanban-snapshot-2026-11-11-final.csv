@@ -1,0 +1,26 @@
+number,title,status,assignees,labels
+23,[S4] Entrega Final — README com comando único e publicação do dashboard,Done,marcosffp,lab04|entrega-final|tarefa
+18,[FEAT] Entrega Final — Dashboard completo e apresentação oral,Done,ALuiz19,feat|lab04|entrega-final
+19,[REFINAMENTO] S0 - Entrega Final,Done,ALuiz19,lab04|refinamento|entrega-final
+22,[S3] Entrega Final — Dashboard: seções 6–7 (Dados Reais e Conclusão),Done,ALuiz19,lab04|entrega-final|tarefa
+24,[S5] Entrega Final — Preparação da apresentação oral: divisão das 15 perguntas,Done,GuilhermeVieira05,lab04|entrega-final|tarefa
+25,[S6] Entrega Final — Snapshot do Kanban,Done,ALuiz19,lab04|entrega-final|tarefa
+21,[S2] Entrega Final — Dashboard: seções 4–5 (Erro tipo I e Poder),Done,marcosffp,lab04|entrega-final|tarefa
+20,"[S1] Entrega Final — Dashboard: seções 1–3 (Cenário, Dados, Como os testes funcionam)",Done,GuilhermeVieira05,lab04|entrega-final|tarefa
+17,[S6] Sprint S02 — Snapshot do Kanban,Done,ALuiz19,lab04|sprint-s02|tarefa
+9,[S7] Sprint S01 — Snapshot do Kanban,Done,GuilhermeVieira05,lab04|sprint-s01|tarefa
+7,[S5] Sprint S01 — G1: histogramas dados reais × dados simulados por grupo,Done,ALuiz19,lab04|sprint-s01|tarefa
+1,"[FEAT] Sprint S01 — Dados Reais, Cenário e Primeiros Testes",Done,ALuiz19,feat|lab04|sprint-s01
+2,[REFINAMENTO] S0 - Sprint S01,Done,marcosffp,lab04|refinamento|sprint-s01
+5,[S3] Sprint S01 — Código de geração de dados simulados com semente fixa,Done,marcosffp,lab04|sprint-s01|tarefa
+3,[S1] Sprint S01 — Escolha do par de testes e coleta de dados reais,Done,GuilhermeVieira05,lab04|sprint-s01|tarefa
+4,"[S2] Sprint S01 — Definição do cenário: pergunta, H₀/H₁, parâmetros e expectativa",Done,ALuiz19,lab04|sprint-s01|tarefa
+6,[S4] Sprint S01 — Aplicação dos dois testes a dados simulados e interpretação,Done,GuilhermeVieira05,lab04|sprint-s01|tarefa
+8,[S6] Sprint S01 — G2: distribuição da estatística sob H₀ com região de rejeição,Done,marcosffp,lab04|sprint-s01|tarefa
+10,[FEAT] Sprint S02 — Simulação Completa e Visualização,Done,GuilhermeVieira05,feat|lab04|sprint-s02
+11,[REFINAMENTO] S0 - Sprint S02,Done,GuilhermeVieira05,lab04|refinamento|sprint-s02
+12,[S1] Sprint S02 — Q1: Erro tipo I — 10.000 repetições sob H₀,Done,marcosffp,lab04|sprint-s02|tarefa
+13,[S2] Sprint S02 — Q2: Poder — efeitos crescentes (≥ 5 tamanhos),Done,marcosffp,lab04|sprint-s02|tarefa
+14,[S3] Sprint S02 — Q3: Violação de pressuposto do teste paramétrico,Done,marcosffp,lab04|sprint-s02|tarefa
+15,[S4] Sprint S02 — G3: Erro tipo I dos dois testes por situação simulada,Done,GuilhermeVieira05,lab04|sprint-s02|tarefa
+16,[S5] Sprint S02 — G4: Curvas de poder dos dois testes,Done,marcosffp,lab04|sprint-s02|tarefa
