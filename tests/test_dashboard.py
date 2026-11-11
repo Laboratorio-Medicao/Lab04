@@ -339,3 +339,32 @@ def test_secao_7_limitacao_cita_a_sensibilidade_e_o_efeito_negativo():
     texto = "\n".join(i.value for i in itens if i.type == "markdown")
     assert "99,8%" in texto and "efeito negativo" in texto and "situação normal" not in texto
     assert "situação cenário" not in texto and texto.count("limitação") <= 1
+
+
+def test_texto_g2_liga_o_z_ao_u_padronizado_da_legenda():
+    estatisticas, exemplo = dashboard.dados_g2()
+    texto = dashboard.texto_g2(exemplo, dashboard.fracao_na_regiao(estatisticas, exemplo))
+    assert "Z do Mann-Whitney (o U padronizado)" in texto
+
+
+def test_texto_g3_diz_que_com_n_pequeno_o_welch_fica_abaixo_de_5():
+    texto = dashboard.texto_g3(dados_erro_tipo_i())
+    assert "abaixo de 5%" in texto and "piora ainda mais" not in texto
+
+
+def test_texto_g4_cita_todas_as_situacoes_em_que_o_welch_infla_o_erro_tipo_i():
+    texto = dashboard.texto_g4(dados_poder())
+    assert "infla além de 5% no cenário base e com outliers extremos." in texto
+    assert "com amostras pequenas." not in texto
+
+
+def test_texto_queda_welch_fala_em_repeticoes_e_nao_em_parte_das_rejeicoes():
+    texto = dashboard.texto_queda_welch(dashboard.carregar_complementar())
+    assert "dessas rejeições" not in texto and "das repetições a rejeição vem com t negativo" in texto
+
+
+def test_limitacao_nao_diz_que_a_vantagem_tambem_vale_para_efeitos_positivos():
+    itens = secao(abrir(), "7. Conclusão")
+    texto = "\n".join(i.value for i in itens if i.type == "markdown")
+    assert "também vale para efeitos positivos" not in texto
+    assert "vale para efeitos positivos; com efeito negativo" in texto

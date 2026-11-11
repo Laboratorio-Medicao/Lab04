@@ -62,7 +62,7 @@ def texto_g2(exemplo: dict, fracoes: dict | None = None) -> str:
         pct = lambda x: f"{x:.1%}".replace(".", ",")  # noqa: E731
         regiao = (
             "onde a estatística seria rara sob H₀ (5% na curva teórica), mas nas simulações "
-            f"{pct(fracoes['mann_whitney'])} dos Z do Mann-Whitney e {pct(fracoes['welch'])} dos t de Welch "
+            f"{pct(fracoes['mann_whitney'])} dos Z do Mann-Whitney (o U padronizado) e {pct(fracoes['welch'])} dos t de Welch "
             "caem nela, porque a assimetria dos dados deixa o t mais disperso que a curva teórica, "
             "o mesmo erro tipo I inflado do G3"
         )
@@ -106,7 +106,10 @@ def texto_g4(dados: pd.DataFrame) -> str:
         f"chega a {p(pct('amostras_pequenas', 'Mann-Whitney U', d_max))} e o Welch, a "
         f"{p(pct('amostras_pequenas', 't de Welch', d_max))}, e com outliers extremos o Welch fica em "
         f"{p(pct('outliers_extremos', 't de Welch', d_max))}. "
-        "O valor em d = 0 não é poder, e sim o erro tipo I, que o Welch infla além de 5% no cenário base."
+        "O valor em d = 0 não é poder, e sim o erro tipo I, que o Welch infla além de 5% "
+        + " e ".join(nome for s, nome in (("normal", "no cenário base"), ("amostras_pequenas", "com amostras pequenas"),
+                                           ("outliers_extremos", "com outliers extremos"))
+                     if pct(s, "t de Welch", 0.0) > 0.06) + "."
     )
 
 
@@ -192,7 +195,7 @@ def texto_queda_welch(comp: pd.DataFrame) -> str:
     cresce = " e ".join(f"{_pct(tot(d) - rapido(d))} em d = {_num(d, 1)}" for d in proximos)
     return (
         f"**Por que o poder do Welch cai até d = {_num(d_vale, 1)}?** Sem efeito, o Welch rejeita {_pct(tot(0.0))} das "
-        f"vezes no cenário base, e {_pct(rapido(0.0))} dessas rejeições são com t negativo (o Dependabot parece mais "
+        f"vezes no cenário base, e em {_pct(rapido(0.0))} das repetições a rejeição vem com t negativo (o Dependabot parece mais "
         "rápido), porque, com dados assimétricos, a estatística t também é assimétrica. Um efeito positivo (Dependabot "
         "mais lento) puxa o t de volta para o centro e tira essas rejeições "
         f"({_pct(rapido(positivos[0]))} em d = {_num(positivos[0], 1)}; {_pct(rapido(d_vale))} em d = {_num(d_vale, 1)}) "
@@ -237,7 +240,7 @@ def texto_limitacao_poder(sens: pd.DataFrame) -> str:
         "A cauda simulada é mais pesada que a real: truncando os tempos no máximo observado, o poder do Welch em "
         f"d = {_num(d_max, 1)} passa de {_pct(welch['sem truncamento'][d_max])} para "
         f"{_pct(welch['truncada no máximo real'][d_max])} (seção 5), então o tamanho da vantagem de poder do "
-        "Mann-Whitney depende da cauda assumida. Essa vantagem também vale para efeitos positivos: com efeito "
+        "Mann-Whitney depende da cauda assumida. Essa vantagem vale para efeitos positivos; com efeito "
         "negativo, o sentido observado nos dados reais, o Welch tem mais poder em efeitos muito pequenos, em parte "
         "por causa do erro tipo I."
     )
@@ -357,7 +360,8 @@ def texto_g3(dados: pd.DataFrame) -> str:
         f"{classe(w['outliers_extremos'])} com outliers extremos ({p(w['outliers_extremos'])}). "
         "O excesso de rejeições do Welch vem da forte assimetria dos dados, que prejudica a aproximação normal da "
         "estatística t, e o cenário base já tem essa assimetria. "
-        "Com n = 10 essa aproximação piora ainda mais, e o teste quase nunca rejeita."
+        "Com n = 10 o desvio vai para o outro lado: poucos valores grandes inflam o erro-padrão junto com a "
+        "média, o t fica pequeno e o Welch quase nunca rejeita, abaixo de 5%."
     )
 
 
