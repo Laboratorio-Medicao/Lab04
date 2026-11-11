@@ -395,6 +395,19 @@ def secao_4() -> None:
         st.dataframe(tabela.style.format(precision=1, decimal=","), hide_index=True)
 
 
+def _poder_em_d(dados: pd.DataFrame, d_val: float) -> dict[str, float]:
+    """Retorna proporção de rejeições no cenário base para cada teste no d_val mais próximo."""
+    ds_disponiveis = sorted(dados["d"].unique())
+    d_mais_proximo = min(ds_disponiveis, key=lambda x: abs(x - d_val))
+    base = dados[(dados["situacao"] == "normal") & (dados["d"] == d_mais_proximo)]
+    resultado = {}
+    for nome_teste in base["teste"].unique():
+        linha = base[base["teste"] == nome_teste]
+        if not linha.empty:
+            resultado[nome_teste] = float(linha["proporcao_rejeicoes"].iloc[0])
+    return resultado
+
+
 def secao_5() -> None:
     st.header("5. Poder")
     try:
@@ -403,7 +416,31 @@ def secao_5() -> None:
     except (ValueError, OSError) as erro:
         st.error(f"Não foi possível montar o G4 com os CSVs de poder da Q2 e da Q3: {erro}")
         return
-    st.plotly_chart(figura_g4(dados), theme=None, width="stretch")
+
+    ds_disponiveis = sorted(float(d) for d in dados["d"].unique())
+    d_inicial = ds_disponiveis[len(ds_disponiveis) // 2]
+    d_selecionado = st.select_slider(
+        "Tamanho do efeito d — arraste para ver o poder em cada ponto da curva",
+        options=ds_disponiveis,
+        value=d_inicial,
+        format_func=lambda x: f"d = {x:.1f}",
+    )
+
+    poder_atual = _poder_em_d(dados, d_selecionado)
+    if d_selecionado > 0:
+        col1, col2 = st.columns(2)
+        welch_val = poder_atual.get("t de Welch", 0.0)
+        mw_val = poder_atual.get("Mann-Whitney U", 0.0)
+        col1.metric("Mann-Whitney U — poder no cenário base", f"{mw_val:.1%}".replace(".", ","))
+        col2.metric("t de Welch — poder no cenário base", f"{welch_val:.1%}".replace(".", ","),
+                    delta=f"{welch_val - mw_val:.1%}".replace(".", ","),
+                    delta_color="inverse")
+
+    fig = figura_g4(dados)
+    fig.add_vline(
+        x=d_selecionado, line_dash="dash", line_color="#a0b4ff", line_width=1.5,
+    )
+    st.plotly_chart(fig, theme=None, width="stretch")
     st.caption("Cada ponto tem 10.000 repetições por teste, com semente fixa 42. A linha pontilhada é α = 5%.")
     st.write(texto_g4(dados))
     with st.expander("Ver dados do G4"):
@@ -584,18 +621,35 @@ def secao_7() -> None:
 def renderizar() -> None:
     st.set_page_config(page_title="LAB04", layout="wide")
     st.title("LAB04: Testes de Hipótese por Dentro")
-    st.caption("t de Welch × Mann-Whitney no tempo até o merge de PRs de pallets/flask")
+    st.caption("t de Welch × Mann-Whitney — tempo até o merge de PRs em pallets/flask")
     links = [f"[Repositório]({URL_REPOSITORIO})", f"[GitHub Projects (Kanban)]({URL_PROJECTS})"]
     if URL_DASHBOARD:
         links.insert(0, f"[Dashboard]({URL_DASHBOARD})")
     st.markdown(" · ".join(links))
-    secao_1()
-    secao_2()
-    secao_3()
-    secao_4()
-    secao_5()
-    secao_6()
-    secao_7()
+
+    abas = st.tabs([
+        "1 · Cenário",
+        "2 · Os dados",
+        "3 · Como os testes funcionam",
+        "4 · Erro tipo I",
+        "5 · Poder",
+        "6 · Dados reais",
+        "7 · Conclusão",
+    ])
+    with abas[0]:
+        secao_1()
+    with abas[1]:
+        secao_2()
+    with abas[2]:
+        secao_3()
+    with abas[3]:
+        secao_4()
+    with abas[4]:
+        secao_5()
+    with abas[5]:
+        secao_6()
+    with abas[6]:
+        secao_7()
 
 
 def main() -> None:

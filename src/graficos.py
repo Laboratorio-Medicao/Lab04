@@ -23,14 +23,14 @@ from testes import ALPHA, ResultadoTestes, aplicar_testes
 # - welch e mann_whitney têm contraste abaixo de 3:1, então G2 a G4 precisam de
 #   legenda visível e tabela.
 CORES = {
-    "com_bot": "#2a78d6",
-    "sem_bot": "#eb6834",
-    "welch": "#1baf7a",
-    "mann_whitney": "#eda100",
+    "com_bot": "#4d9fff",
+    "sem_bot": "#ff8c5a",
+    "welch": "#2ecc98",
+    "mann_whitney": "#ffc137",
 }
-SUPERFICIE = "#fcfcfb"
-TINTA = "#52514e"
-GRADE = "#e1e0d9"
+SUPERFICIE = "#0e1117"
+TINTA = "#e8eaf6"
+GRADE = "#1e2538"
 
 GRUPOS = {"com_bot": "Dependabot", "sem_bot": "Humanos"}
 SEMENTE = 42

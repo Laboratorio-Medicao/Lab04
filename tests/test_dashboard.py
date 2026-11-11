@@ -21,8 +21,20 @@ def abrir():
     return AppTest.from_file(APP, default_timeout=30).run()
 
 
+def _achatar(bloco):
+    """Retorna todos os elementos de um bloco, recursivamente (funciona com st.tabs)."""
+    resultado = []
+    for n in bloco.children.values():
+        resultado.append(n)
+        try:
+            resultado.extend(_achatar(n))
+        except (AttributeError, TypeError):
+            pass
+    return resultado
+
+
 def secao(at, titulo):
-    itens = list(at.main.children.values())
+    itens = _achatar(at.main)
     inicio = next(i for i, n in enumerate(itens) if n.type == "header" and n.value == titulo)
     fim = next((i for i in range(inicio + 1, len(itens)) if itens[i].type == "header"), len(itens))
     return itens[inicio + 1:fim]
@@ -81,9 +93,9 @@ def test_comando_unico_encerra_sem_traceback_no_ctrl_c():
     assert saida.value.code == 0
 
 
-def test_tema_claro_fixo():
+def test_tema_escuro_fixo():
     config = tomllib.loads((RAIZ / ".streamlit/config.toml").read_text(encoding="utf-8"))
-    assert config["theme"]["base"] == "light"
+    assert config["theme"]["base"] == "dark"
     assert config["server"]["headless"] is True
     assert config["browser"]["gatherUsageStats"] is False
 
