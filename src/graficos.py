@@ -206,17 +206,40 @@ def exemplo_g2(parametros: dict, semente: int = SEMENTE) -> dict:
     }
 
 
-def figura_g2(estatisticas: dict, exemplo: dict, alpha: float = 0.05) -> go.Figure:
-    """Um painel por teste: histograma Monte Carlo sob H₀, curva teórica, região de rejeição e p-valor."""
+def distribuicao_g2(chave: str, exemplo: dict):
+    """Distribuição teórica da estatística sob H₀: t com gl de Welch ou normal padrão (U padronizado)."""
     from scipy import stats
 
-    def distribuicao(chave: str):
-        if chave == "welch":
-            return stats.t(exemplo["welch"]["gl"])
-        return stats.norm()
+    return stats.t(exemplo["welch"]["gl"]) if chave == "welch" else stats.norm()
 
-    figura = make_subplots(rows=1, cols=2, horizontal_spacing=0.1,
-                           subplot_titles=[nome for nome in TESTES_G2.values()])
+
+def fracao_na_regiao(estatisticas: dict, exemplo: dict, alpha: float = 0.05) -> dict[str, float]:
+    """Fração das estatísticas simuladas sob H₀ que cai na região de rejeição teórica (bicaudal).
+
+    Se a distribuição teórica descrevesse bem a estatística, seria ≈ α. Com dados muito
+    assimétricos, o t de Welch passa de α, e essa diferença é o erro tipo I inflado do G3.
+    """
+    fracoes = {}
+    for chave in TESTES_G2:
+        crit = float(distribuicao_g2(chave, exemplo).ppf(1 - alpha / 2))
+        fracoes[chave] = float(np.mean(np.abs(estatisticas[chave]) >= crit))
+    return fracoes
+
+
+def figura_g2(estatisticas: dict, exemplo: dict, alpha: float = 0.05) -> go.Figure:
+    """Um painel por teste: histograma Monte Carlo sob H₀, curva teórica, região de rejeição e p-valor."""
+
+    def distribuicao(chave: str):
+        return distribuicao_g2(chave, exemplo)
+
+    fracoes = fracao_na_regiao(estatisticas, exemplo, alpha)
+
+    titulos = [
+        (f"{nome}<br><sup><b>Simulado sob H₀: {fracoes[chave]:.1%} na região de rejeição</b> "
+         f"(curva teórica: {alpha:.0%})</sup>").replace(".", ",")
+        for chave, nome in TESTES_G2.items()
+    ]
+    figura = make_subplots(rows=1, cols=2, horizontal_spacing=0.1, subplot_titles=titulos)
     for coluna, (chave, nome) in enumerate(TESTES_G2.items(), start=1):
         cor, dist = CORES[chave], distribuicao(chave)
         obs, p = exemplo[chave]["estatistica"], exemplo[chave]["p_valor"]
@@ -266,7 +289,7 @@ def figura_g2(estatisticas: dict, exemplo: dict, alpha: float = 0.05) -> go.Figu
 
     figura.update_layout(
         title="G2: distribuição da estatística sob H₀ (bicaudal)",
-        showlegend=True, barmode="overlay", separators=",.", height=480,
+        showlegend=True, barmode="overlay", separators=",.", height=500, margin={"t": 120},
         paper_bgcolor=SUPERFICIE, plot_bgcolor=SUPERFICIE, font={"color": TINTA},
         legend={"orientation": "h", "y": -0.28},
     )
@@ -282,7 +305,7 @@ def figura_g2(estatisticas: dict, exemplo: dict, alpha: float = 0.05) -> go.Figu
 # ---------------------------------------------------------------------------
 
 ROTULOS_G3 = {
-    "H₀ verdadeira": "Situação normal (Q1)",
+    "H₀ verdadeira": "Cenário base, já assimétrico (Q1)",
     "amostras_pequenas": "Violação: amostras pequenas (Q3)",
     "outliers_extremos": "Violação: outliers extremos (Q3)",
 }
@@ -350,7 +373,7 @@ def figura_g3(dados: pd.DataFrame, alpha: float = 0.05) -> go.Figure:
 TESTES_G4 = {"t de Welch": "welch", "Mann-Whitney U": "mann_whitney"}
 # Painéis do G4: a situação normal vem da Q2 e as de violação de pressuposto, da Q3.
 PAINEIS_G4 = {
-    "normal": "Situação normal (Q2)",
+    "normal": "Cenário base, já assimétrico (Q2)",
     "amostras_pequenas": "Violação: amostras pequenas (Q3)",
     "outliers_extremos": "Violação: outliers extremos (Q3)",
 }
@@ -444,3 +467,60 @@ def tabela_g5(res: ResultadoTestes) -> pd.DataFrame:
         }
         for teste in (res.welch, res.mann_whitney)
     ])
+
+
+# ---------------------------------------------------------------------------
+# Tabelas de apoio: sensibilidade da cauda, efeito negativo e α = 1%
+# ---------------------------------------------------------------------------
+
+ROTULOS_SITUACAO = {
+    "normal": "Cenário base (já assimétrico)",
+    "amostras_pequenas": "Amostras pequenas (n = 10)",
+    "outliers_extremos": "Outliers extremos (σ × 1,5)",
+}
+COLUNAS_SENSIBILIDADE = ["d", "teste", "variante", "proporcao_rejeicoes"]
+COLUNAS_COMPLEMENTAR = ["situacao", "d", "teste", "proporcao_alfa05", "proporcao_alfa01",
+                        "proporcao_alfa05_bot_mais_rapido"]
+
+
+def _exigir(df: pd.DataFrame, colunas: list[str], nome: str) -> None:
+    faltam = [c for c in colunas if c not in df.columns]
+    if faltam:
+        raise ValueError(f"Faltam colunas em {nome}: {', '.join(faltam)}")
+
+
+def tabela_sensibilidade(sensibilidade: pd.DataFrame) -> pd.DataFrame:
+    """Poder (%) por d, com e sem truncar os tempos simulados no máximo dos dados reais."""
+    _exigir(sensibilidade, COLUNAS_SENSIBILIDADE, "a sensibilidade da Q2")
+    tabela = sensibilidade.pivot_table(index="d", columns=["teste", "variante"],
+                                       values="proporcao_rejeicoes") * 100
+    tabela.columns = [f"{teste}, {variante} (%)" for teste, variante in tabela.columns]
+    return tabela.reset_index()
+
+
+def tabela_efeito_com_sinal(complementar: pd.DataFrame) -> pd.DataFrame:
+    """Rejeições (%) a α = 5% por situação e d com sinal (d < 0: bot mais rápido)."""
+    _exigir(complementar, COLUNAS_COMPLEMENTAR, "a simulação complementar")
+    tabela = complementar[complementar["d"] != 0].pivot_table(
+        index=["situacao", "d"], columns="teste", values="proporcao_alfa05") * 100
+    tabela = tabela.reset_index().sort_values(["situacao", "d"], key=lambda c: c.map(
+        {s: i for i, s in enumerate(ROTULOS_SITUACAO)}) if c.name == "situacao" else c)
+    tabela["situacao"] = tabela["situacao"].map(ROTULOS_SITUACAO)
+    return tabela.rename(columns={"situacao": "Situação", "d": "d",
+                                  **{t: f"{t} (%)" for t in TESTES_G4}})
+
+
+def tabela_alfa(complementar: pd.DataFrame) -> pd.DataFrame:
+    """Erro tipo I (d = 0) e poder (d > 0) a α = 5% e a α = 1%, por situação."""
+    _exigir(complementar, COLUNAS_COMPLEMENTAR, "a simulação complementar")
+    dados = complementar[complementar["d"] >= 0]
+    tabela = dados.pivot_table(index=["situacao", "d"], columns="teste",
+                               values=["proporcao_alfa05", "proporcao_alfa01"]) * 100
+    tabela.columns = [f"{teste}, α = {'5' if alfa.endswith('05') else '1'}% (%)"
+                      for alfa, teste in tabela.columns]
+    tabela = tabela.reset_index()
+    ordem = {s: i for i, s in enumerate(ROTULOS_SITUACAO)}
+    tabela = tabela.sort_values(["situacao", "d"], key=lambda c: c.map(ordem) if c.name == "situacao" else c)
+    tabela["situacao"] = tabela["situacao"].map(ROTULOS_SITUACAO)
+    colunas = ["situacao", "d"] + [f"{t}, α = {a}% (%)" for t in TESTES_G4 for a in ("5", "1")]
+    return tabela[colunas].rename(columns={"situacao": "Situação"})

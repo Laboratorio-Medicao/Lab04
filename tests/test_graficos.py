@@ -356,3 +356,73 @@ def test_tabela_g5_tem_duas_linhas_e_colunas_esperadas():
     assert list(tabela["Tamanho do efeito"]) == [res.welch.tamanho_efeito, res.mann_whitney.tamanho_efeito]
     for teste, conclusao in zip((res.welch, res.mann_whitney), tabela["Conclusão a α = 5%"]):
         assert conclusao == ("Rejeita H₀" if teste.p_valor < 0.05 else "Não rejeita H₀")
+
+
+# ---------------------------------------------------------------------------
+# G2: fração simulada na região de rejeição; rótulos do cenário base; tabelas de apoio
+EXEMPLO_FRACAO = {"welch": {"gl": 365.0}, "mann_whitney": {}}
+
+
+def test_fracao_na_regiao_e_perto_de_alfa_quando_a_distribuicao_teorica_vale():
+    rng = np.random.default_rng(1)
+    estat = {"welch": rng.standard_normal(40_000), "mann_whitney": rng.standard_normal(40_000)}
+    fracoes = gr.fracao_na_regiao(estat, EXEMPLO_FRACAO)
+    assert set(fracoes) == set(gr.TESTES_G2)
+    assert all(abs(f - 0.05) < 0.01 for f in fracoes.values())
+
+
+def test_fracao_na_regiao_passa_de_alfa_quando_a_estatistica_e_mais_dispersa():
+    rng = np.random.default_rng(1)
+    estat = {"welch": 1.5 * rng.standard_normal(40_000), "mann_whitney": rng.standard_normal(40_000)}
+    fracoes = gr.fracao_na_regiao(estat, EXEMPLO_FRACAO)
+    assert fracoes["welch"] > 0.15 > fracoes["mann_whitney"]
+
+
+def test_figura_g2_anota_a_fracao_simulada_em_cada_painel():
+    parametros = carregar_parametros()
+    estat, exemplo = gr.estatisticas_h0(parametros, n_repeticoes=200), gr.exemplo_g2(parametros)
+    fig = gr.figura_g2(estat, exemplo)
+    notas = [a.text for a in fig.layout.annotations if "na região de rejeição" in a.text]
+    fracoes = gr.fracao_na_regiao(estat, exemplo)
+    assert len(notas) == 2 and all("curva teórica: 5%" in n for n in notas)
+    for chave, nota in zip(gr.TESTES_G2, notas):
+        assert f"{fracoes[chave]:.1%}".replace(".", ",") in nota
+
+
+def test_rotulos_chamam_a_referencia_de_cenario_base_ja_assimetrico():
+    import simulacao_q3 as q3
+
+    assert "Cenário base" in gr.ROTULOS_G3["H₀ verdadeira"] and "Cenário base" in gr.PAINEIS_G4["normal"]
+    assert q3.SITUACOES["normal"]["rotulo"] == "Cenário base (já assimétrico)"
+    assert gr.ROTULOS_SITUACAO["normal"] == q3.SITUACOES["normal"]["rotulo"]
+    rotulos = " ".join(list(gr.ROTULOS_G3.values()) + list(gr.PAINEIS_G4.values()))
+    assert "normal" not in rotulos.lower()
+
+
+def test_tabela_sensibilidade_compara_com_e_sem_truncamento():
+    sens = pd.read_csv("data/simulacao_q2_sensibilidade.csv")
+    tabela = gr.tabela_sensibilidade(sens)
+    assert list(tabela["d"]) == sorted(sens["d"].unique())
+    assert "t de Welch, truncada no máximo real (%)" in tabela.columns
+    assert "t de Welch, sem truncamento (%)" in tabela.columns
+    assert len(tabela.columns) == 5
+
+
+def test_tabela_sensibilidade_recusa_csv_sem_colunas():
+    with pytest.raises(ValueError):
+        gr.tabela_sensibilidade(pd.DataFrame({"d": [0.0]}))
+
+
+def test_tabelas_do_complementar_tem_efeito_negativo_e_alfa_1_por_cento():
+    comp = pd.read_csv("data/simulacao_complementar.csv")
+    sinal = gr.tabela_efeito_com_sinal(comp)
+    assert (sinal["d"] < 0).any() and (sinal["d"] > 0).any() and not (sinal["d"] == 0).any()
+    assert set(sinal["Situação"]) == set(gr.ROTULOS_SITUACAO.values())
+    alfa = gr.tabela_alfa(comp)
+    assert (alfa["d"] >= 0).all()
+    assert "t de Welch, α = 1% (%)" in alfa.columns and "Mann-Whitney U, α = 5% (%)" in alfa.columns
+
+
+def test_tabelas_do_complementar_recusam_csv_incompleto():
+    with pytest.raises(ValueError):
+        gr.tabela_alfa(pd.DataFrame({"d": [0.0]}))

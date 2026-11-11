@@ -108,8 +108,10 @@ def test_secao_3_integra_o_g2_e_o_texto():
     itens = secao(abrir(), "3. Como os testes funcionam")
     graficos = [i for i in itens if i.type == "plotly_chart"]
     assert len(graficos) == 1 and graficos[0].proto.theme == ""
-    _, exemplo = dashboard.dados_g2()
-    assert dashboard.texto_g2(exemplo) in [i.value for i in itens if i.type == "markdown"]
+    estatisticas, exemplo = dashboard.dados_g2()
+    fracoes = dashboard.fracao_na_regiao(estatisticas, exemplo)
+    assert dashboard.texto_g2(exemplo, fracoes) in [i.value for i in itens if i.type == "markdown"]
+    assert [i.label for i in itens if i.type == "expander"] == ["O que o p-valor não significa"]
 
 
 def test_texto_g2_tem_ate_quatro_frases():
@@ -128,7 +130,9 @@ def test_secao_5_integra_o_g4_o_texto_e_a_tabela():
     graficos = [i for i in itens if i.type == "plotly_chart"]
     assert len(graficos) == 1 and graficos[0].proto.theme == ""
     assert dashboard.texto_g4(dados_poder()) in [i.value for i in itens if i.type == "markdown"]
-    assert [i.label for i in itens if i.type == "expander"] == ["Ver dados do G4"]
+    assert [i.label for i in itens if i.type == "expander"] == [
+        "Ver dados do G4", "Ver o poder com efeitos negativos (Dependabot mais rápido)",
+        "Sensibilidade: e se a cauda simulada fosse mais leve?"]
 
 
 def test_texto_g4_tem_ate_quatro_frases_com_dados_reais():
@@ -163,7 +167,8 @@ def test_secao_4_integra_o_g3_o_texto_e_a_tabela():
     graficos = [i for i in itens if i.type == "plotly_chart"]
     assert len(graficos) == 1 and graficos[0].proto.theme == ""
     assert dashboard.texto_g3(dados_erro_tipo_i()) in [i.value for i in itens if i.type == "markdown"]
-    assert [i.label for i in itens if i.type == "expander"] == ["Ver dados do G3"]
+    assert [i.label for i in itens if i.type == "expander"] == [
+        "Ver dados do G3", "Erro tipo I e erro tipo II no nosso cenário", "E se α fosse 1% em vez de 5%?"]
 
 
 def test_texto_g3_tem_ate_quatro_frases_e_aponta_o_teste_que_se_desviou():
@@ -243,6 +248,94 @@ def test_texto_secao_7_reflete_os_desvios_e_o_poder_nao_monotono_do_welch():
     g4 = dados_poder()
     blocos = dashboard.texto_secao_7(resultado_real(), dados_erro_tipo_i(), g4)
     achados = blocos[1]
-    for trecho in ("liberal na situação normal (11,2%)", "liberal com outliers extremos (8,5%)",
+    for trecho in ("liberal no cenário base (11,2%)", "liberal com outliers extremos (8,5%)",
                    "conservador com amostras pequenas (0,5%)", "5,1%", "2,7%", "1,5%", "9,4%"):
         assert trecho in achados
+
+
+# ---------------------------------------------------------------------------
+# Explicações das perguntas 7, 8, 11 e 12, G2 com a fração simulada e poder do Welch
+def complementar():
+    return pd.read_csv(RAIZ / "data" / "simulacao_complementar.csv")
+
+
+def frases(texto):
+    return len(re.findall(r"[.!?](?:\s|$)", texto))
+
+
+def test_texto_g2_com_fracoes_mostra_o_excesso_do_welch_e_mantem_ate_quatro_frases():
+    estatisticas, exemplo = dashboard.dados_g2()
+    fracoes = dashboard.fracao_na_regiao(estatisticas, exemplo)
+    texto = dashboard.texto_g2(exemplo, fracoes)
+    assert fracoes["welch"] > 0.08 > fracoes["mann_whitney"] > 0.03
+    assert f"{fracoes['welch']:.1%}".replace(".", ",") in texto and "5% na curva teórica" in texto
+    assert "5% no total" not in texto and 2 <= frases(texto) <= 4
+
+
+def test_pvalor_nao_significa_cobre_os_quatro_pontos():
+    texto = dashboard.texto_pvalor_nao_significa()
+    for trecho in ("Não é a probabilidade de H₀", "Não é a chance de a conclusão", "Não mede o tamanho do efeito",
+                   "Não garante relevância prática"):
+        assert trecho in texto
+
+
+def test_erros_tipo_i_e_ii_no_contexto_do_dependabot_e_qual_e_mais_grave():
+    texto = dashboard.texto_erros_tipo_i_ii()
+    for trecho in ("**Erro tipo I:**", "**Erro tipo II:**", "Dependabot", "não existe diferença",
+                   "1 − poder", "**Qual é mais grave:**"):
+        assert trecho in texto
+
+
+def test_situacoes_explicam_que_o_cenario_base_ja_e_assimetrico_e_o_mecanismo_de_cada_violacao():
+    texto = dashboard.texto_situacoes(carregar_parametros())
+    for trecho in ("já é muito assimétrico", "3,9", "6,3", "não** comparam dados normais",
+                   "Amostras pequenas (n = 10", "aproximação normal", "Outliers extremos", "média e "
+                   "a variância"):
+        assert trecho in texto
+
+
+def test_nenhum_rotulo_do_dashboard_chama_o_cenario_base_de_normal():
+    texto = "\n".join(m.value for m in abrir().main.markdown)
+    assert "situação normal" not in texto.lower() and "Normal (cenário)" not in texto
+
+
+def test_texto_alfa_compara_5_e_1_por_cento_com_os_numeros_da_simulacao():
+    texto = dashboard.texto_alfa(complementar())
+    for trecho in ("α = 1%", "0,8% a 0,9%", "3,6%", "1,7%", "0,0%", "98,3%", "92,5%", "16,2%", "1,5%",
+                   "não muda para nenhum d > 0"):
+        assert trecho in texto
+
+
+def test_texto_queda_welch_explica_o_lado_negativo_das_rejeicoes():
+    texto = dashboard.texto_queda_welch(complementar())
+    for trecho in ("cai até d = 0,2", "11,2%", "11,1%", "4,8%", "1,7%", "3,4%", "t negativo", "erro tipo I"):
+        assert trecho in texto
+
+
+def test_texto_efeito_negativo_mostra_onde_a_vantagem_muda_de_lado():
+    texto = dashboard.texto_efeito_negativo(complementar(), carregar_parametros())
+    for trecho in ("−0,12", "21,8%", "14,3%", "muda de lado", "volta à frente", "100,0%"):
+        assert trecho in texto.replace("-0,12", "−0,12")
+
+
+def test_texto_sensibilidade_traz_o_truncamento_como_limitacao():
+    sens = pd.read_csv(RAIZ / "data" / "simulacao_q2_sensibilidade.csv")
+    texto = dashboard.texto_sensibilidade(sens, 5234.0858)
+    for trecho in ("5.234 h", "11,2%", "14,1%", "54,4%", "99,8%", "limitação"):
+        assert trecho in texto
+
+
+def test_secoes_4_e_5_nao_mostram_erro_e_trazem_as_novas_explicacoes():
+    at = abrir()
+    assert not at.exception and not at.error
+    secao4 = "\n".join(i.value for i in secao(at, "4. Erro tipo I") if i.type == "markdown")
+    assert "Como ler as três situações" in secao4
+    secao5 = "\n".join(i.value for i in secao(at, "5. Poder") if i.type == "markdown")
+    assert "Por que o poder do Welch cai" in secao5 and "Dependabot é mais rápido" in secao5
+
+
+def test_secao_7_limitacao_cita_a_sensibilidade_e_o_efeito_negativo():
+    itens = secao(abrir(), "7. Conclusão")
+    texto = "\n".join(i.value for i in itens if i.type == "markdown")
+    assert "99,8%" in texto and "efeito negativo" in texto and "situação normal" not in texto
+    assert "situação cenário" not in texto and texto.count("limitação") <= 1

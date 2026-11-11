@@ -18,6 +18,8 @@ from streamlit import runtime
 RAIZ = Path(__file__).resolve().parent
 URL_REPOSITORIO = "https://github.com/Laboratorio-Medicao/Lab04"
 URL_PROJECTS = "https://github.com/orgs/Laboratorio-Medicao/projects/1"
+# Link público do dashboard (Streamlit Community Cloud). Preencher após a publicação.
+URL_DASHBOARD = ""
 sys.path.insert(0, str(RAIZ / "src"))
 
 from graficos import (  # noqa: E402
@@ -25,6 +27,9 @@ from graficos import (  # noqa: E402
     figura_g1, figura_g2, figura_g3, figura_g4, tabela_g1, tabela_g3, tabela_g4,
 )
 from graficos import resultado_g5, tabela_g5  # noqa: E402
+from graficos import (  # noqa: E402
+    ROTULOS_SITUACAO, fracao_na_regiao, tabela_alfa, tabela_efeito_com_sinal, tabela_sensibilidade,
+)
 from simulacao import carregar_parametros  # noqa: E402
 
 
@@ -48,9 +53,19 @@ def texto_g1(parametros: dict) -> str:
     )
 
 
-def texto_g2(exemplo: dict) -> str:
+def texto_g2(exemplo: dict, fracoes: dict | None = None) -> str:
     def v(x: float) -> str:
         return f"{x:.2f}".replace(".", ",")
+
+    regiao = "onde a estatística seria rara sob H₀ (5% no total)"
+    if fracoes:
+        pct = lambda x: f"{x:.1%}".replace(".", ",")  # noqa: E731
+        regiao = (
+            "onde a estatística seria rara sob H₀ (5% na curva teórica), mas nas simulações "
+            f"{pct(fracoes['mann_whitney'])} dos Z do Mann-Whitney e {pct(fracoes['welch'])} dos t de Welch "
+            "caem nela, porque a assimetria dos dados deixa o t mais disperso que a curva teórica, "
+            "o mesmo erro tipo I inflado do G3"
+        )
 
     w, mw = exemplo["welch"], exemplo["mann_whitney"]
     rejeita = [t for t in (w, mw) if t["p_valor"] < 0.05]
@@ -59,7 +74,7 @@ def texto_g2(exemplo: dict) -> str:
     return (
         "O t de Welch compara as médias dos dois grupos e o Mann-Whitney compara se um PR de um grupo "
         "tende a demorar mais que o do outro. Como o teste é bicaudal, a região de rejeição (cinza) fica "
-        "nas duas caudas, onde a estatística seria rara sob H₀ (5% no total). "
+        f"nas duas caudas, {regiao}. "
         f"No exemplo, sorteado sob H₀, o t vale {v(w['estatistica'])} (p = {v(w['p_valor'])}) e o Z do "
         f"Mann-Whitney vale {v(mw['estatistica'])} (p = {v(mw['p_valor'])}). "
         "O p-valor é a área em vermelho: a chance de obter uma estatística tão extrema quanto a do exemplo "
@@ -84,14 +99,166 @@ def texto_g4(dados: pd.DataFrame) -> str:
     vantagem = ("em todas as situações simuladas e em todo d > 0" if not welch_ganha
                 else "na maior parte da curva, com exceção de " + "; ".join(welch_ganha))
     return (
-        f"O Mann-Whitney tem mais poder que o t de Welch {vantagem}: na situação normal, com "
+        f"O Mann-Whitney tem mais poder que o t de Welch {vantagem}: no cenário base, com "
         f"d = {d_max:g}, ele rejeita {p(pct('normal', 'Mann-Whitney U', d_max))} das vezes e o Welch, "
         f"{p(pct('normal', 't de Welch', d_max))}. "
         "A violação de pressuposto derruba sobretudo o Welch: com amostras pequenas o Mann-Whitney "
         f"chega a {p(pct('amostras_pequenas', 'Mann-Whitney U', d_max))} e o Welch, a "
         f"{p(pct('amostras_pequenas', 't de Welch', d_max))}, e com outliers extremos o Welch fica em "
         f"{p(pct('outliers_extremos', 't de Welch', d_max))}. "
-        "O valor em d = 0 não é poder, e sim o erro tipo I, que o Welch infla além de 5% na situação normal."
+        "O valor em d = 0 não é poder, e sim o erro tipo I, que o Welch infla além de 5% no cenário base."
+    )
+
+
+def _pct(x: float, casas: int = 1) -> str:
+    return f"{x:.{casas}%}".replace(".", ",")
+
+
+def _prop(df: pd.DataFrame, situacao: str, teste: str, d: float, coluna: str = "proporcao_alfa05") -> float:
+    filtro = (df["situacao"] == situacao) & (df["teste"] == teste) & (df["d"] == d)
+    return float(df.loc[filtro, coluna].iloc[0])
+
+
+def carregar_complementar() -> pd.DataFrame:
+    return pd.read_csv(RAIZ / "data" / "simulacao_complementar.csv")
+
+
+def texto_pvalor_nao_significa() -> str:
+    return (
+        "- **Não é a probabilidade de H₀ ser verdadeira.** O p-valor já supõe H₀ verdadeira e mede quão rara "
+        "seria uma estatística tão extrema quanto a observada.\n"
+        "- **Não é a chance de a conclusão estar certa**, nem a probabilidade de repetir o resultado.\n"
+        "- **Não mede o tamanho do efeito.** Com amostras grandes, uma diferença minúscula dá p pequeno; por isso "
+        "a seção 6 traz também o Cohen's d e o r.\n"
+        "- **Não garante relevância prática**, e um p-valor alto não prova que não há efeito: pode ser só falta de poder."
+    )
+
+
+def texto_situacoes(parametros: dict) -> str:
+    d = parametros["descritivas"]
+    return (
+        "**Como ler as três situações.** O **cenário base já é muito assimétrico**: os dados reais têm assimetria "
+        f"de {_num(d['com_bot']['assimetria'], 1)} (Dependabot) e {_num(d['sem_bot']['assimetria'], 1)} (humanos), "
+        "e a simulação reproduz essa forma. Por isso o G3 e o G4 **não** comparam dados normais com dados não normais: "
+        "comparam um cenário que já é difícil para o t de Welch com duas situações que o pioram.\n\n"
+        "- **Amostras pequenas (n = 10 por grupo):** com apenas 10 observações por grupo, a aproximação normal "
+        "usada pelo teste fica menos confiável, e poucos valores grandes decidem a média e o erro-padrão.\n"
+        "- **Outliers extremos (desvio de ln T × 1,5):** valores muito elevados influenciam fortemente a média e "
+        "a variância, então o t oscila muito de uma amostra para outra. O Mann-Whitney usa só a ordem dos valores "
+        "e quase não sente isso."
+    )
+
+
+def texto_erros_tipo_i_ii() -> str:
+    return (
+        "- **Erro tipo I:** concluir que os PRs do Dependabot são mergeados mais rápido (ou mais devagar) que os "
+        "de humanos quando, na realidade, não existe diferença. É o que o G3 mede, com H₀ verdadeira.\n"
+        "- **Erro tipo II:** não identificar uma diferença que existe entre os grupos. É o complemento do poder do "
+        "G4: erro tipo II = 1 − poder.\n"
+        "- **Qual é mais grave:** neste cenário, o tipo I. Um falso positivo levaria a mudar a política de revisão "
+        "ou de automação por uma diferença que não existe, enquanto o tipo II só mantém o processo atual. Por isso "
+        "o erro tipo I inflado do t de Welch pesa na recomendação."
+    )
+
+
+def texto_alfa(comp: pd.DataFrame) -> str:
+    situacoes = list(ROTULOS_SITUACAO)
+    a01 = lambda s, t, d: _prop(comp, s, t, d, "proporcao_alfa01")  # noqa: E731
+    a05 = lambda s, t, d: _prop(comp, s, t, d)  # noqa: E731
+    mw = [a01(s, "Mann-Whitney U", 0.0) for s in situacoes]
+    positivos = sorted(float(d) for d in comp["d"].unique() if d > 0)
+    d_ref = 0.5
+    ordem = all(a01(s, "Mann-Whitney U", d) >= a01(s, "t de Welch", d) for s in situacoes for d in positivos)
+    return (
+        f"Com α = 1%, a linha de referência do G3 desce para 1%. O Mann-Whitney fica perto dela nas três situações "
+        f"({_pct(min(mw))} a {_pct(max(mw))}), e o Welch continua fora: {_pct(a01('normal', 't de Welch', 0.0))} no "
+        f"cenário base, {_pct(a01('amostras_pequenas', 't de Welch', 0.0))} com amostras pequenas e "
+        f"{_pct(a01('outliers_extremos', 't de Welch', 0.0))} com outliers extremos. "
+        "No G4 todas as curvas descem, porque o critério fica mais rígido e exige efeitos maiores para o mesmo poder: "
+        f"no cenário base, em d = {_num(d_ref, 1)}, o Mann-Whitney passa de {_pct(a05('normal', 'Mann-Whitney U', d_ref))} "
+        f"para {_pct(a01('normal', 'Mann-Whitney U', d_ref))} e o Welch de {_pct(a05('normal', 't de Welch', d_ref))} "
+        f"para {_pct(a01('normal', 't de Welch', d_ref))}. "
+        + ("A ordem entre os testes não muda para nenhum d > 0." if ordem
+           else "A ordem entre os testes muda em alguns pontos; veja a tabela.")
+    )
+
+
+def texto_queda_welch(comp: pd.DataFrame) -> str:
+    tot = lambda d: _prop(comp, "normal", "t de Welch", d)  # noqa: E731
+    rapido = lambda d: _prop(comp, "normal", "t de Welch", d, "proporcao_alfa05_bot_mais_rapido")  # noqa: E731
+    positivos = sorted(float(d) for d in comp["d"].unique() if d > 0)
+    d_vale = min(positivos, key=tot)
+    proximos = [d for d in positivos if d > d_vale][:2]
+    cresce = " e ".join(f"{_pct(tot(d) - rapido(d))} em d = {_num(d, 1)}" for d in proximos)
+    return (
+        f"**Por que o poder do Welch cai até d = {_num(d_vale, 1)}?** Sem efeito, o Welch rejeita {_pct(tot(0.0))} das "
+        f"vezes no cenário base, e {_pct(rapido(0.0))} dessas rejeições são com t negativo (o Dependabot parece mais "
+        "rápido), porque, com dados assimétricos, a estatística t também é assimétrica. Um efeito positivo (Dependabot "
+        "mais lento) puxa o t de volta para o centro e tira essas rejeições "
+        f"({_pct(rapido(positivos[0]))} em d = {_num(positivos[0], 1)}; {_pct(rapido(d_vale))} em d = {_num(d_vale, 1)}) "
+        f"antes que a cauda positiva cresça (rejeições com t positivo: {cresce}). "
+        "Parte do \"poder\" do Welch em efeitos pequenos é, portanto, erro tipo I, e não detecção do efeito."
+    )
+
+
+def texto_efeito_negativo(comp: pd.DataFrame, parametros: dict) -> str:
+    negativos = sorted(float(d) for d in comp["d"].unique() if d < 0)
+    w = lambda s, d: _prop(comp, s, "t de Welch", d)  # noqa: E731
+    m = lambda s, d: _prop(comp, s, "Mann-Whitney U", d)  # noqa: E731
+    inicio = (
+        "O G4 mostra efeitos positivos (Dependabot mais lento), como a Q2 e a Q3 pedem a partir de zero, mas nos "
+        f"dados reais o Dependabot é mais rápido (d = {_num(parametros['delta_padronizado'], 2)} na escala da simulação). "
+    )
+    ganha = [d for d in negativos if w("normal", d) > m("normal", d)]
+    if not ganha:
+        return inicio + ("Com efeitos negativos o Mann-Whitney também tem mais poder que o Welch em todos os d "
+                         "simulados no cenário base.")
+    d_ini = ganha[-1]
+    d_volta = next(d for d in reversed(negativos) if d < d_ini)
+    d_ext = negativos[0]
+    return (
+        inicio
+        + f"Nesse sentido a vantagem muda de lado em efeitos muito pequenos: no cenário base, em d = {_num(d_ini, 1)}, "
+        f"o Welch rejeita {_pct(w('normal', d_ini))} e o Mann-Whitney {_pct(m('normal', d_ini))}. "
+        f"Isso vem em boa parte do erro tipo I do Welch, que já rejeita {_pct(_prop(comp, 'normal', 't de Welch', 0.0, 'proporcao_alfa05_bot_mais_rapido'))} "
+        "sem efeito algum nesse sentido. "
+        f"A partir de d = {_num(d_volta, 1)} o Mann-Whitney volta à frente ({_pct(m('normal', d_volta))} contra "
+        f"{_pct(w('normal', d_volta))}) e chega a {_pct(m('normal', d_ext))} contra {_pct(w('normal', d_ext))} em "
+        f"d = {_num(d_ext, 1)}."
+    )
+
+
+def texto_limitacao_poder(sens: pd.DataFrame) -> str:
+    """Duas frases para a limitação da seção 7: cauda simulada e sentido do efeito."""
+    tabela = sens.pivot_table(index="d", columns=["teste", "variante"], values="proporcao_rejeicoes")
+    welch = tabela["t de Welch"]
+    d_max = max(float(d) for d in tabela.index)
+    return (
+        "A cauda simulada é mais pesada que a real: truncando os tempos no máximo observado, o poder do Welch em "
+        f"d = {_num(d_max, 1)} passa de {_pct(welch['sem truncamento'][d_max])} para "
+        f"{_pct(welch['truncada no máximo real'][d_max])} (seção 5), então o tamanho da vantagem de poder do "
+        "Mann-Whitney depende da cauda assumida. Essa vantagem também vale para efeitos positivos: com efeito "
+        "negativo, o sentido observado nos dados reais, o Welch tem mais poder em efeitos muito pequenos, em parte "
+        "por causa do erro tipo I."
+    )
+
+
+def texto_sensibilidade(sens: pd.DataFrame, teto: float) -> str:
+    tabela = sens.pivot_table(index="d", columns=["teste", "variante"], values="proporcao_rejeicoes")
+    sem, com = "sem truncamento", "truncada no máximo real"
+    w_sem, w_com = tabela[("t de Welch", sem)], tabela[("t de Welch", com)]
+    m_com = tabela[("Mann-Whitney U", com)]
+    ds = [float(d) for d in tabela.index if d > 0]
+    d_max = max(ds)
+    a_frente = all(m_com[d] > w_com[d] for d in ds)
+    return (
+        "A cauda simulada é mais pesada que a real: a média teórica da mistura é cerca de 200 h, contra 132 h nos "
+        f"dados combinados (veja `docs/cenario.md`). Ao truncar os tempos em {_num(teto, 0)} h, o máximo observado, "
+        f"o erro tipo I do Welch vai de {_pct(w_sem[0.0])} para {_pct(w_com[0.0])} e o poder dele em d = {_num(d_max, 1)} "
+        f"de {_pct(w_sem[d_max])} para {_pct(w_com[d_max])}, enquanto o Mann-Whitney fica em {_pct(m_com[d_max])}. "
+        + ("O Mann-Whitney continua à frente em todos os d, mas a distância depende de quão pesada é a cauda. "
+           if a_frente else "A ordem entre os testes muda em alguns d; veja a tabela. ")
+        + "Isso é uma limitação: o tamanho da vantagem de poder do Mann-Whitney depende da cauda assumida na simulação."
     )
 
 
@@ -166,7 +333,9 @@ def secao_3() -> None:
     st.plotly_chart(figura_g2(estatisticas, exemplo), theme=None, width="stretch")
     st.caption("Histograma de 2.000 conjuntos sorteados sob H₀ (n = 60 e 320), com semente fixa 42. "
                "A curva é a distribuição teórica: t com graus de liberdade de Welch e normal padrão para o U padronizado.")
-    st.write(texto_g2(exemplo))
+    st.write(texto_g2(exemplo, fracao_na_regiao(estatisticas, exemplo)))
+    with st.expander("O que o p-valor não significa"):
+        st.markdown(texto_pvalor_nao_significa())
 
 
 def texto_g3(dados: pd.DataFrame) -> str:
@@ -183,11 +352,11 @@ def texto_g3(dados: pd.DataFrame) -> str:
     mw = {s: v(s, "Mann-Whitney U") for s in w}
     return (
         f"O Mann-Whitney ficou perto de 5% nas três situações, entre {p(min(mw.values()))} e {p(max(mw.values()))}. "
-        f"O t de Welch foi o que se desviou: {classe(w['H₀ verdadeira'])} na situação normal ({p(w['H₀ verdadeira'])}), "
+        f"O t de Welch foi o que se desviou: {classe(w['H₀ verdadeira'])} no cenário base ({p(w['H₀ verdadeira'])}), "
         f"{classe(w['amostras_pequenas'])} com amostras pequenas ({p(w['amostras_pequenas'])}) e "
         f"{classe(w['outliers_extremos'])} com outliers extremos ({p(w['outliers_extremos'])}). "
         "O excesso de rejeições do Welch vem da forte assimetria dos dados, que prejudica a aproximação normal da "
-        "estatística t. "
+        "estatística t, e o cenário base já tem essa assimetria. "
         "Com n = 10 essa aproximação piora ainda mais, e o teste quase nunca rejeita."
     )
 
@@ -205,8 +374,21 @@ def secao_4() -> None:
     st.plotly_chart(figura_g3(dados), theme=None, width="stretch")
     st.caption("10.000 repetições por situação e por teste, com semente fixa 42. A linha pontilhada é α = 5%.")
     st.write(texto_g3(dados))
+    st.markdown(texto_situacoes(carregar_parametros()))
     with st.expander("Ver dados do G3"):
         st.dataframe(tabela_g3(dados).style.format(precision=1, decimal=","), hide_index=True)
+    with st.expander("Erro tipo I e erro tipo II no nosso cenário"):
+        st.markdown(texto_erros_tipo_i_ii())
+    try:
+        comp = carregar_complementar()
+        tabela = tabela_alfa(comp)
+        explicacao = texto_alfa(comp)
+    except (ValueError, OSError, KeyError) as erro:
+        st.error(f"Não foi possível montar a análise com α = 1%: {erro}")
+        return
+    with st.expander("E se α fosse 1% em vez de 5%?"):
+        st.write(explicacao)
+        st.dataframe(tabela.style.format(precision=1, decimal=","), hide_index=True)
 
 
 def secao_5() -> None:
@@ -222,6 +404,23 @@ def secao_5() -> None:
     st.write(texto_g4(dados))
     with st.expander("Ver dados do G4"):
         st.dataframe(tabela_g4(dados).style.format(precision=1, decimal=","), hide_index=True)
+    try:
+        comp = carregar_complementar()
+        sens = pd.read_csv(RAIZ / "data" / "simulacao_q2_sensibilidade.csv")
+        teto = float(pd.read_csv(RAIZ / "data" / "dados_reais.csv")["horas_ate_merge"].max())
+        tabela_comp, tabela_sens = tabela_efeito_com_sinal(comp), tabela_sensibilidade(sens)
+        explicacoes = (texto_queda_welch(comp), texto_efeito_negativo(comp, carregar_parametros()),
+                       texto_sensibilidade(sens, teto))
+    except (ValueError, OSError, KeyError) as erro:
+        st.error(f"Não foi possível montar as análises complementares de poder: {erro}")
+        return
+    st.markdown(explicacoes[0])
+    st.markdown(explicacoes[1])
+    with st.expander("Ver o poder com efeitos negativos (Dependabot mais rápido)"):
+        st.dataframe(tabela_comp.style.format(precision=1, decimal=","), hide_index=True)
+    with st.expander("Sensibilidade: e se a cauda simulada fosse mais leve?"):
+        st.write(explicacoes[2])
+        st.dataframe(tabela_sens.style.format(precision=1, decimal=","), hide_index=True)
 
 
 def formatar_p(p: float) -> str:
@@ -282,7 +481,7 @@ def recomendado(g3: pd.DataFrame, g4: pd.DataFrame) -> str:
     return min(TESTES, key=lambda t: (round(desvio[t], 3), -poder[t]))
 
 
-def texto_secao_7(res, g3: pd.DataFrame, g4: pd.DataFrame) -> list[str]:
+def texto_secao_7(res, g3: pd.DataFrame, g4: pd.DataFrame, extra: str = "") -> list[str]:
     def p(x: float) -> str:
         return f"{x:.1%}".replace(".", ",")
 
@@ -314,11 +513,11 @@ def texto_secao_7(res, g3: pd.DataFrame, g4: pd.DataFrame) -> list[str]:
         "tivesse erro tipo I fora de 5%, já que a aproximação normal da estatística t sofre com essa assimetria.",
         f"**Achados.** {achado}: sob H₀, o Mann-Whitney rejeitou entre {p(min(erros['Mann-Whitney U']))} e "
         f"{p(max(erros['Mann-Whitney U']))} das vezes nas situações simuladas, enquanto o t de Welch foi "
-        f"{classe(w_normal)} na situação normal ({p(w_normal)}), {classe(w_outliers)} com outliers extremos "
+        f"{classe(w_normal)} no cenário base ({p(w_normal)}), {classe(w_outliers)} com outliers extremos "
         f"({p(w_outliers)}) e {classe(w_pequenas)} com amostras pequenas ({p(w_pequenas)}). "
-        f"Com d = {_num(d_ref, 1)} na situação normal, o poder foi de {p(poder['Mann-Whitney U'])} no Mann-Whitney "
-        f"e de {p(poder['t de Welch'])} no t de Welch, cujo poder nem cresce sempre com o efeito: na situação "
-        f"normal cai de {p(welch_poder('normal', d_min))} em d = {_num(d_min, 1)} para "
+        f"Com d = {_num(d_ref, 1)} no cenário base, o poder foi de {p(poder['Mann-Whitney U'])} no Mann-Whitney "
+        f"e de {p(poder['t de Welch'])} no t de Welch, cujo poder nem cresce sempre com o efeito: no "
+        f"cenário base cai de {p(welch_poder('normal', d_min))} em d = {_num(d_min, 1)} para "
         f"{p(welch_poder('normal', d_seg))} em d = {_num(d_seg, 1)}, e com outliers extremos desce a "
         f"{p(min_out)} em d = {_num(d_min_out, 1)} e só chega a {p(welch_poder('outliers_extremos', d_max))} em "
         f"d = {_num(d_max, 1)}. "
@@ -326,7 +525,7 @@ def texto_secao_7(res, g3: pd.DataFrame, g4: pd.DataFrame) -> list[str]:
         f"{p_igual(real[outro].p_valor)}.",
         f"**Recomendação.** Recomendamos o {NOMES[escolhido]} para comparar o tempo até o merge de PRs do "
         "Dependabot e de humanos, porque nas situações simuladas ele manteve o erro tipo I mais perto de 5% e "
-        f"teve mais poder, enquanto o {NOMES[outro]} se desviou de 5% para os dois lados e teve poder baixo e instável "
+        f"teve mais poder nos efeitos positivos simulados, enquanto o {NOMES[outro]} se desviou de 5% para os dois lados e teve poder baixo e instável "
         f"nas situações simuladas. Por ele, {evidencia} a α = 5% de que um grupo tende a ser mergeado mais rápido que "
         "o outro.",
         "**Quando mudaria.** Se a pergunta fosse sobre a média, por exemplo o tempo total de espera somado de "
@@ -336,7 +535,7 @@ def texto_secao_7(res, g3: pd.DataFrame, g4: pd.DataFrame) -> list[str]:
         "**Limitação.** Os dados vêm de um único repositório (pallets/flask), e a simulação usa uma mistura de "
         "lognormais estimada desses mesmos dados, então os resultados podem não valer para outros projetos. "
         "Além disso, o Mann-Whitney testa se um grupo tende a ter valores maiores que o outro, e não a "
-        "diferença de médias, o que limita o que se conclui sobre o tempo médio.",
+        "diferença de médias, o que limita o que se conclui sobre o tempo médio." + extra,
     ]
 
 
@@ -367,7 +566,14 @@ def secao_7() -> None:
     except (ValueError, OSError) as erro:
         st.error(f"Não foi possível montar a conclusão com os CSVs de data/: {erro}")
         return
-    for bloco in texto_secao_7(res, g3, g4):
+    extra = ""
+    try:
+        sens = pd.read_csv(RAIZ / "data" / "simulacao_q2_sensibilidade.csv")
+        carregar_complementar()
+        extra = " " + texto_limitacao_poder(sens)
+    except (ValueError, OSError, KeyError):
+        pass
+    for bloco in texto_secao_7(res, g3, g4, extra):
         st.markdown(bloco)
 
 
@@ -375,7 +581,10 @@ def renderizar() -> None:
     st.set_page_config(page_title="LAB04", layout="wide")
     st.title("LAB04: Testes de Hipótese por Dentro")
     st.caption("t de Welch × Mann-Whitney no tempo até o merge de PRs de pallets/flask")
-    st.markdown(f"[Repositório]({URL_REPOSITORIO}) · [GitHub Projects (Kanban)]({URL_PROJECTS})")
+    links = [f"[Repositório]({URL_REPOSITORIO})", f"[GitHub Projects (Kanban)]({URL_PROJECTS})"]
+    if URL_DASHBOARD:
+        links.insert(0, f"[Dashboard]({URL_DASHBOARD})")
+    st.markdown(" · ".join(links))
     secao_1()
     secao_2()
     secao_3()
