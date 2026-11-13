@@ -635,31 +635,46 @@ def renderizar() -> None:
     aba_visual, aba_relatorio = st.tabs(["Visão geral", "Relatório"])
 
     with aba_visual:
-        # --- Linha 1: G1 — legenda à direita para não colidir com eixo X ---
+        # --- G1: legenda à direita, automargin nos eixos ---
         try:
             parametros = carregar_parametros()
             amostras = amostras_g1(pd.read_csv(RAIZ / "data" / "dados_reais.csv"), parametros)
             fig = figura_g1(amostras)
             fig.update_layout(
                 height=400,
-                margin={"t": 55, "b": 55, "l": 60, "r": 200},
+                margin={"t": 55, "b": 55, "l": 60, "r": 210},
                 legend={"orientation": "v", "x": 1.01, "xanchor": "left",
                         "y": 0.5, "yanchor": "middle"},
             )
+            fig.update_xaxes(automargin=True)
+            fig.update_yaxes(automargin=True)
             st.plotly_chart(fig, theme=None, width="stretch")
         except (ValueError, OSError) as erro:
             st.error(f"G1: {erro}")
 
-        # --- Linha 2: G3 | métricas G5 ---
+        # --- G3 | métricas G5 ---
         c_g3, c_metricas = st.columns([3, 2])
         with c_g3:
             try:
                 g3 = dados_g3(pd.read_csv(RAIZ / "data" / "simulacao_q1_resumo.csv"),
                               pd.read_csv(RAIZ / "data" / "simulacao_q3_comparacao.csv"))
                 fig = figura_g3(g3)
+                _rotulos_g3 = {
+                    "Cenário base, já assimétrico (Q1)": "Cenário base",
+                    "Violação: amostras pequenas (Q3)": "Amostras pequenas",
+                    "Violação: outliers extremos (Q3)": "Outliers extremos",
+                }
+                fig.update_xaxes(
+                    ticktext=list(_rotulos_g3.values()),
+                    tickvals=list(_rotulos_g3.keys()),
+                    tickangle=0,
+                    title_text="",
+                    automargin=True,
+                )
+                fig.update_yaxes(title_text="Rejeições sob H₀", automargin=True)
                 fig.update_layout(
                     height=380,
-                    margin={"t": 55, "b": 90, "l": 60, "r": 20},
+                    margin={"t": 55, "b": 100, "l": 60, "r": 20},
                     legend={"orientation": "h", "y": -0.22},
                 )
                 st.plotly_chart(fig, theme=None, width="stretch")
@@ -672,7 +687,7 @@ def renderizar() -> None:
                 mc1, mc2 = st.columns(2)
                 mc1.metric("t de Welch", f"t = {_num(res.welch.estatistica)}",
                            delta=f"p {formatar_p(res.welch.p_valor)}", delta_color="off")
-                mc2.metric("Mann-Whitney U", f"U = {_num(res.mann_whitney.estatistica, 1)}",
+                mc2.metric("Mann-Whitney U", f"U = {_num(res.mann_whitney.estatistica, 0)}",
                            delta=f"p = {formatar_p(res.mann_whitney.p_valor)}", delta_color="off")
                 mc1.metric("Cohen's d", _num(res.welch.tamanho_efeito),
                            delta=_magnitude(res.welch.tamanho_efeito, (0.2, 0.5, 0.8)), delta_color="off")
@@ -681,21 +696,24 @@ def renderizar() -> None:
             except (ValueError, OSError) as erro:
                 st.error(f"G5: {erro}")
 
-        # --- Linha 3: G2 — linha inteira, margem superior ampla para o subtítulo ---
+        # --- G2: remove subtítulo longo dos painéis, legenda embaixo ---
         try:
             estatisticas, exemplo = dados_g2()
             fig = figura_g2(estatisticas, exemplo)
+            for ann in fig.layout.annotations:
+                if "<br><sup>" in ann.text:
+                    ann.text = ann.text.split("<br><sup>")[0]
+            fig.update_xaxes(automargin=True)
             fig.update_layout(
-                height=480,
-                margin={"t": 140, "b": 100, "l": 60, "r": 20},
-                legend={"orientation": "v", "x": 1.01, "xanchor": "left",
-                        "y": 0.5, "yanchor": "middle"},
+                height=460,
+                margin={"t": 80, "b": 130, "l": 60, "r": 20},
+                legend={"orientation": "h", "y": -0.26},
             )
             st.plotly_chart(fig, theme=None, width="stretch")
         except Exception as erro:
             st.error(f"G2: {erro}")
 
-        # --- Linha 4: G4 com slider — linha inteira ---
+        # --- G4: títulos curtos, eixo X só no painel 1, legenda embaixo ---
         try:
             dados_poder = dados_g4(pd.read_csv(RAIZ / "data" / "simulacao_q2_poder.csv"),
                                    pd.read_csv(RAIZ / "data" / "simulacao_q3_poder.csv"))
@@ -707,9 +725,20 @@ def renderizar() -> None:
                 format_func=lambda x: f"d = {x:.1f}",
             )
             fig = figura_g4(dados_poder)
+            _titulos_g4 = {
+                "Cenário base, já assimétrico (Q2)": "Cenário base (Q2)",
+                "Violação: amostras pequenas (Q3)": "Amostras pequenas (Q3)",
+                "Violação: outliers extremos (Q3)": "Outliers extremos (Q3)",
+            }
+            for ann in fig.layout.annotations:
+                ann.text = _titulos_g4.get(ann.text, ann.text)
+            fig.update_xaxes(title_text="", row=1, col=2)
+            fig.update_xaxes(title_text="", row=1, col=3)
+            fig.update_xaxes(automargin=True)
+            fig.update_yaxes(automargin=True)
             fig.update_layout(
                 height=380,
-                margin={"t": 55, "b": 90, "l": 60, "r": 20},
+                margin={"t": 70, "b": 90, "l": 60, "r": 20},
                 legend={"orientation": "h", "y": -0.22},
             )
             fig.add_vline(x=d_sel, line_dash="dash", line_color="#a0b4ff", line_width=1.5)
