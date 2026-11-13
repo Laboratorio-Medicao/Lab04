@@ -524,3 +524,165 @@ def tabela_alfa(complementar: pd.DataFrame) -> pd.DataFrame:
     tabela["situacao"] = tabela["situacao"].map(ROTULOS_SITUACAO)
     colunas = ["situacao", "d"] + [f"{t}, α = {a}% (%)" for t in TESTES_G4 for a in ("5", "1")]
     return tabela[colunas].rename(columns={"situacao": "Situação"})
+
+
+# ---------------------------------------------------------------------------
+# G6: distribuição dos p-valores sob H₀ (Q1)
+# ---------------------------------------------------------------------------
+
+COLUNAS_PVALORES = {"t de Welch": "p_welch", "Mann-Whitney U": "p_mann_whitney"}
+
+
+def figura_g6(pvalores: pd.DataFrame, alpha: float = 0.05) -> go.Figure:
+    """Histograma dos p-valores sob H₀, um painel por teste. Um teste calibrado tem barras planas."""
+    _exigir(pvalores, list(COLUNAS_PVALORES.values()), "os p-valores da Q1")
+    largura = alpha
+    n_faixas = round(1 / largura)
+    centros = (np.arange(n_faixas) + 0.5) * largura
+    figura = make_subplots(rows=1, cols=2, shared_yaxes=True, horizontal_spacing=0.05,
+                           subplot_titles=list(COLUNAS_PVALORES))
+    topo = 0.0
+    for coluna, (teste, campo) in enumerate(COLUNAS_PVALORES.items(), start=1):
+        p = pvalores[campo].dropna().to_numpy()
+        contagens, _ = np.histogram(p, bins=n_faixas, range=(0, 1))
+        frac = contagens / len(p)
+        topo = max(topo, float(frac.max()))
+        cor = CORES[TESTES_G4[teste]]
+        figura.add_trace(go.Bar(
+            x=centros, y=frac, width=largura * 0.92, name=teste, showlegend=False,
+            marker={"color": [cor] + [com_opacidade(cor, 0.45)] * (n_faixas - 1)},
+            customdata=np.stack([centros - largura / 2, centros + largura / 2], axis=-1),
+            hovertemplate=("p de %{customdata[0]:.2f} a %{customdata[1]:.2f}<br>%{y:.1%} das repetições"
+                           f"<extra>{teste}</extra>"),
+        ), row=1, col=coluna)
+        figura.add_annotation(
+            x=0, y=frac[0], text=f"<b>p < {alpha:.2f}: {frac[0]:.1%}</b>".replace(".", ","),
+            showarrow=False, yshift=12, xanchor="left", font={"color": TINTA}, row=1, col=coluna,
+        )
+        figura.add_hline(y=largura, line_dash="dot", line_color=TINTA, line_width=1, row=1, col=coluna)
+    figura.add_trace(go.Scatter(
+        x=[None], y=[None], mode="lines",
+        name=f"Esperado com teste calibrado ({largura:.0%} por faixa)".replace(".", ","),
+        line={"color": TINTA, "width": 1, "dash": "dot"}, hoverinfo="skip", showlegend=True,
+    ))
+    figura.update_layout(
+        title="G6: distribuição dos p-valores sob H₀ verdadeira (Q1)",
+        separators=",.", height=420, bargap=0, showlegend=True, margin={"t": 120},
+        paper_bgcolor=SUPERFICIE, plot_bgcolor=SUPERFICIE, font={"color": TINTA},
+        legend={"orientation": "h", "x": 0, "y": 1.12, "yanchor": "bottom"},
+    )
+    figura.update_xaxes(title_text="p-valor", range=[0, 1], showgrid=False, zeroline=False)
+    figura.update_yaxes(gridcolor=GRADE, zeroline=False, tickformat=".0%", range=[0, topo * 1.3])
+    figura.update_yaxes(title_text="Fração das repetições", row=1, col=1)
+    return figura
+
+
+# ---------------------------------------------------------------------------
+# G7: sensibilidade do poder ao truncamento da cauda (Q2)
+# ---------------------------------------------------------------------------
+
+ESTILO_VARIANTE = {"sem truncamento": "solid", "truncada no máximo real": "dot"}
+
+
+def figura_g7(sensibilidade: pd.DataFrame, alpha: float = 0.05) -> go.Figure:
+    """Poder × d no cenário base, com e sem truncar a cauda simulada no máximo real."""
+    _exigir(sensibilidade, COLUNAS_SENSIBILIDADE, "a sensibilidade da Q2")
+    figura = go.Figure()
+    for teste, chave in TESTES_G4.items():
+        for variante, traco in ESTILO_VARIANTE.items():
+            serie = sensibilidade[(sensibilidade["teste"] == teste)
+                                  & (sensibilidade["variante"] == variante)].sort_values("d")
+            if serie.empty:
+                continue
+            figura.add_trace(go.Scatter(
+                x=serie["d"], y=serie["proporcao_rejeicoes"], mode="lines+markers",
+                name=f"{teste}, {variante}", legendgroup=chave,
+                line={"color": CORES[chave], "width": 2.5, "dash": traco},
+                # Marcador vazado e maior na variante truncada: no Mann-Whitney as duas curvas se sobrepõem.
+                marker={"color": CORES[chave], "size": 7 if traco == "solid" else 12,
+                        "symbol": "circle" if traco == "solid" else "circle-open",
+                        "line": {"width": 2}},
+                hovertemplate="d = %{x}<br>rejeita %{y:.1%}<extra>%{fullData.name}</extra>",
+            ))
+    figura.add_hline(y=alpha, line_dash="dot", line_color=TINTA, line_width=1,
+                     annotation_text=f"α = {alpha:.0%}", annotation_position="bottom right",
+                     annotation_font_color=TINTA)
+    # Sem efeito (d = 0), toda rejeição é erro tipo I: avisa para não ler a curva do Welch como poder puro.
+    welch_h0 = sensibilidade[(sensibilidade["teste"] == "t de Welch") & (sensibilidade["d"] == 0)]
+    if not welch_h0.empty:
+        taxas = welch_h0.set_index("variante")["proporcao_rejeicoes"]
+        rotulos = {"sem truncamento": "sem truncar", "truncada no máximo real": "truncado"}
+        partes = [f"{taxas[v]:.1%} ({rotulo})" for v, rotulo in rotulos.items() if v in taxas.index]
+        # Caixa no canto superior esquerdo, a única região sem curvas.
+        figura.add_annotation(
+            x=0, y=float(taxas.max()), ax=12, ay=-140, showarrow=True, arrowcolor=TINTA,
+            arrowwidth=1, xanchor="left", align="left", bgcolor=SUPERFICIE,
+            bordercolor=CORES["welch"], borderwidth=1, font={"color": TINTA, "size": 11},
+            text=("Sem efeito (d = 0), o Welch<br>já rejeita " + "<br>e ".join(partes)
+                  + ":<br>é erro tipo I, não poder").replace(".", ","),
+        )
+    figura.update_layout(
+        title="G7: poder com e sem truncar a cauda simulada no máximo real (cenário base)",
+        separators=",.", height=460, showlegend=True, margin={"t": 120},
+        paper_bgcolor=SUPERFICIE, plot_bgcolor=SUPERFICIE, font={"color": TINTA},
+        legend={"orientation": "h", "x": 0, "y": 1.03, "yanchor": "bottom"},
+    )
+    figura.update_xaxes(title_text="Tamanho do efeito d (padronizado em ln T)", showgrid=False, zeroline=False)
+    figura.update_yaxes(title_text="Proporção de rejeições (poder)", gridcolor=GRADE,
+                        zeroline=False, range=[0, 1.02], tickformat=".0%")
+    return figura
+
+
+# ---------------------------------------------------------------------------
+# G8: poder com efeito nos dois sentidos
+# ---------------------------------------------------------------------------
+
+COR_REFERENCIA = "#a0b4ff"
+
+
+def figura_g8(complementar: pd.DataFrame, d_observado: float | None = None,
+              alpha: float = 0.05) -> go.Figure:
+    """Rejeições a α = 5% × d com sinal (d < 0: Dependabot mais rápido), um painel por situação."""
+    _exigir(complementar, COLUNAS_COMPLEMENTAR, "a simulação complementar")
+    situacoes = [s for s in ROTULOS_SITUACAO if s in set(complementar["situacao"])]
+    figura = make_subplots(rows=1, cols=len(situacoes), shared_yaxes=True, horizontal_spacing=0.05,
+                           subplot_titles=[ROTULOS_SITUACAO[s] for s in situacoes])
+    for coluna, situacao in enumerate(situacoes, start=1):
+        for teste, chave in TESTES_G4.items():
+            serie = complementar[(complementar["situacao"] == situacao)
+                                 & (complementar["teste"] == teste)].sort_values("d")
+            figura.add_trace(go.Scatter(
+                x=serie["d"], y=serie["proporcao_alfa05"], mode="lines+markers", name=teste,
+                legendgroup=chave, showlegend=coluna == 1,
+                line={"color": CORES[chave], "width": 2.5,
+                      "dash": "solid" if chave == "mann_whitney" else "dash"},
+                marker={"color": CORES[chave], "size": 7},
+                hovertemplate="d = %{x}<br>rejeita %{y:.1%}<extra>%{fullData.name}</extra>",
+            ), row=1, col=coluna)
+        figura.add_hline(y=alpha, line_dash="dot", line_color=TINTA, line_width=1, row=1, col=coluna)
+        if d_observado is not None and situacao == "normal":
+            figura.add_vline(x=d_observado, line_dash="dash", line_color=COR_REFERENCIA,
+                             line_width=1.5, row=1, col=coluna)
+            figura.add_annotation(
+                x=d_observado, y=0.55, yref="y domain",
+                text=f"d real<br>{d_observado:.2f}".replace(".", ","), showarrow=False,
+                xanchor="left", xshift=4, align="left", bgcolor=SUPERFICIE,
+                font={"color": COR_REFERENCIA, "size": 11},
+                row=1, col=coluna,
+            )
+    figura.add_trace(go.Scatter(
+        x=[None], y=[None], mode="lines", name=f"α = {alpha:.0%}".replace(".", ","),
+        line={"color": TINTA, "width": 1, "dash": "dot"}, hoverinfo="skip", showlegend=True,
+    ))
+    figura.update_layout(
+        title="G8: poder com efeito nos dois sentidos (d < 0: Dependabot mais rápido)",
+        separators=",.", height=460, showlegend=True, margin={"t": 130},
+        paper_bgcolor=SUPERFICIE, plot_bgcolor=SUPERFICIE, font={"color": TINTA},
+        # Legenda acima dos painéis: embaixo ela colide com o título do eixo x.
+        legend={"orientation": "h", "x": 0, "y": 1.12, "yanchor": "bottom"},
+    )
+    figura.update_xaxes(showgrid=False, zeroline=True, zerolinecolor=GRADE)
+    figura.update_xaxes(title_text="Tamanho do efeito d com sinal", row=1, col=1)
+    figura.update_yaxes(gridcolor=GRADE, zeroline=False, range=[0, 1.02], tickformat=".0%")
+    figura.update_yaxes(title_text="Proporção de rejeições", row=1, col=1)
+    return figura

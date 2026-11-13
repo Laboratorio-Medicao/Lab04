@@ -27,6 +27,7 @@ from graficos import (  # noqa: E402
     figura_g1, figura_g2, figura_g3, figura_g4, tabela_g1, tabela_g3, tabela_g4,
 )
 from graficos import resultado_g5, tabela_g5  # noqa: E402
+from graficos import figura_g6, figura_g7, figura_g8  # noqa: E402
 from graficos import (  # noqa: E402
     ROTULOS_SITUACAO, fracao_na_regiao, tabela_alfa, tabela_efeito_com_sinal, tabela_sensibilidade,
 )
@@ -120,6 +121,17 @@ def _pct(x: float, casas: int = 1) -> str:
 def _prop(df: pd.DataFrame, situacao: str, teste: str, d: float, coluna: str = "proporcao_alfa05") -> float:
     filtro = (df["situacao"] == situacao) & (df["teste"] == teste) & (df["d"] == d)
     return float(df.loc[filtro, coluna].iloc[0])
+
+
+def carregar_pvalores() -> pd.DataFrame:
+    return pd.read_csv(RAIZ / "data" / "simulacao_q1_pvalores.csv")
+
+
+TEXTO_G6 = (
+    "Sob H₀ verdadeira, os p-valores de um teste calibrado se espalham por igual entre 0 e 1, e cada faixa "
+    "de 0,05 recebe cerca de 5% das repetições. O Mann-Whitney fica assim. No t de Welch, a primeira faixa "
+    "tem mais que o dobro do esperado: é o excesso de rejeições que aparece no G3."
+)
 
 
 def carregar_complementar() -> pd.DataFrame:
@@ -381,6 +393,13 @@ def secao_4() -> None:
     st.markdown(texto_situacoes(carregar_parametros()))
     with st.expander("Ver dados do G3"):
         st.dataframe(tabela_g3(dados).style.format(precision=1, decimal=","), hide_index=True)
+    try:
+        st.plotly_chart(figura_g6(carregar_pvalores()), theme=None, width="stretch")
+        st.caption("p-valores das 10.000 repetições da Q1 sob H₀ verdadeira, em faixas de 0,05. "
+                   "A barra destacada é a faixa p < 0,05, ou seja, o erro tipo I do G3.")
+        st.write(TEXTO_G6)
+    except (ValueError, OSError) as erro:
+        st.error(f"Não foi possível montar o G6: {erro}")
     with st.expander("Erro tipo I e erro tipo II no nosso cenário"):
         st.markdown(texto_erros_tipo_i_ii())
     try:
@@ -456,11 +475,16 @@ def secao_5() -> None:
         st.error(f"Não foi possível montar as análises complementares de poder: {erro}")
         return
     st.markdown(explicacoes[0])
+    st.plotly_chart(figura_g8(comp, carregar_parametros()["delta_padronizado"]), theme=None, width="stretch")
+    st.caption("10.000 repetições por ponto, α = 5%. A linha tracejada azul no cenário base marca o d dos dados reais.")
     st.markdown(explicacoes[1])
     with st.expander("Ver o poder com efeitos negativos (Dependabot mais rápido)"):
         st.dataframe(tabela_comp.style.format(precision=1, decimal=","), hide_index=True)
-    with st.expander("Sensibilidade: e se a cauda simulada fosse mais leve?"):
-        st.write(explicacoes[2])
+    st.subheader("Sensibilidade: e se a cauda simulada fosse mais leve?")
+    st.plotly_chart(figura_g7(sens), theme=None, width="stretch")
+    st.caption(f"Na variante truncada, os tempos simulados acima do máximo real ({_num(teto, 0)} h) são cortados nesse valor.")
+    st.write(explicacoes[2])
+    with st.expander("Ver dados do G7"):
         st.dataframe(tabela_sens.style.format(precision=1, decimal=","), hide_index=True)
 
 
@@ -713,6 +737,14 @@ def renderizar() -> None:
         except Exception as erro:
             st.error(f"G2: {erro}")
 
+        # --- G6: p-valores sob H₀ ---
+        try:
+            fig = figura_g6(carregar_pvalores())
+            fig.update_layout(height=380, margin={"t": 110, "b": 60, "l": 60, "r": 20})
+            st.plotly_chart(fig, theme=None, width="stretch")
+        except (ValueError, OSError) as erro:
+            st.error(f"G6: {erro}")
+
         # --- G4: títulos curtos, eixo X só no painel 1, legenda embaixo ---
         try:
             dados_poder = dados_g4(pd.read_csv(RAIZ / "data" / "simulacao_q2_poder.csv"),
@@ -745,6 +777,25 @@ def renderizar() -> None:
             st.plotly_chart(fig, theme=None, width="stretch")
         except (ValueError, OSError) as erro:
             st.error(f"G4: {erro}")
+
+        # --- G8: efeito nos dois sentidos, com o d dos dados reais ---
+        try:
+            comp = carregar_complementar()
+            fig = figura_g8(comp, carregar_parametros()["delta_padronizado"])
+            fig.update_xaxes(automargin=True)
+            fig.update_yaxes(automargin=True)
+            fig.update_layout(height=400, margin={"t": 120, "b": 60, "l": 60, "r": 20})
+            st.plotly_chart(fig, theme=None, width="stretch")
+        except (ValueError, OSError, KeyError) as erro:
+            st.error(f"G8: {erro}")
+
+        # --- G7: sensibilidade ao truncamento da cauda ---
+        try:
+            fig = figura_g7(pd.read_csv(RAIZ / "data" / "simulacao_q2_sensibilidade.csv"))
+            fig.update_layout(height=420, margin={"t": 110, "b": 60, "l": 60, "r": 20})
+            st.plotly_chart(fig, theme=None, width="stretch")
+        except (ValueError, OSError) as erro:
+            st.error(f"G7: {erro}")
 
     with aba_relatorio:
         secao_1()

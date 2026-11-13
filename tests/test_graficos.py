@@ -426,3 +426,49 @@ def test_tabelas_do_complementar_tem_efeito_negativo_e_alfa_1_por_cento():
 def test_tabelas_do_complementar_recusam_csv_incompleto():
     with pytest.raises(ValueError):
         gr.tabela_alfa(pd.DataFrame({"d": [0.0]}))
+
+
+def test_figura_g6_tem_um_painel_por_teste_e_frações_somam_um():
+    pv = pd.read_csv(RAIZ / "data" / "simulacao_q1_pvalores.csv")
+    barras = [t for t in gr.figura_g6(pv).data if t.type == "bar"]
+    assert [b.name for b in barras] == list(gr.COLUNAS_PVALORES)
+    for barra, campo in zip(barras, gr.COLUNAS_PVALORES.values()):
+        assert len(barra.y) == 20
+        assert sum(barra.y) == pytest.approx(1.0)
+        assert barra.y[0] == pytest.approx((pv[campo] < 0.05).mean())
+
+
+def test_figura_g6_recusa_csv_sem_colunas():
+    with pytest.raises(ValueError):
+        gr.figura_g6(pd.DataFrame({"p_welch": [0.5]}))
+
+
+def test_figura_g7_tem_uma_curva_por_teste_e_variante_na_cor_do_teste():
+    sens = pd.read_csv(RAIZ / "data" / "simulacao_q2_sensibilidade.csv")
+    fig = gr.figura_g7(sens)
+    assert {t.name for t in fig.data} == {f"{t}, {v}" for t in gr.TESTES_G4 for v in gr.ESTILO_VARIANTE}
+    for t in fig.data:
+        assert t.line.color == gr.CORES[gr.TESTES_G4[t.name.split(",")[0]]]
+
+
+def test_figura_g8_tem_um_painel_por_situacao_com_d_negativo_e_marca_d_real():
+    comp = pd.read_csv(RAIZ / "data" / "simulacao_complementar.csv")
+    fig = gr.figura_g8(comp, d_observado=-0.12)
+    curvas = [t for t in fig.data if t.x[0] is not None]
+    assert len(curvas) == 2 * len(gr.ROTULOS_SITUACAO)
+    assert all(min(t.x) < 0 < max(t.x) for t in curvas)
+    assert any("d real" in a.text for a in fig.layout.annotations)
+
+
+def test_figuras_g7_e_g8_recusam_csv_incompleto():
+    with pytest.raises(ValueError):
+        gr.figura_g7(pd.DataFrame({"d": [0.0]}))
+    with pytest.raises(ValueError):
+        gr.figura_g8(pd.DataFrame({"d": [0.0]}))
+
+
+def test_figura_g7_avisa_o_erro_tipo_i_do_welch_em_d_zero():
+    sens = pd.read_csv(RAIZ / "data" / "simulacao_q2_sensibilidade.csv")
+    textos = [a.text for a in gr.figura_g7(sens).layout.annotations]
+    assert any("erro tipo I" in x and "11,2% (sem truncar)" in x and "14,1% (truncado)" in x
+               for x in textos)

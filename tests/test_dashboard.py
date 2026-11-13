@@ -140,11 +140,11 @@ def dados_poder():
 def test_secao_5_integra_o_g4_o_texto_e_a_tabela():
     itens = secao(abrir(), "5. Poder")
     graficos = [i for i in itens if i.type == "plotly_chart"]
-    assert len(graficos) == 1 and graficos[0].proto.theme == ""
+    # G4, G8 (efeito com sinal) e G7 (sensibilidade ao truncamento)
+    assert len(graficos) == 3 and all(g.proto.theme == "" for g in graficos)
     assert dashboard.texto_g4(dados_poder()) in [i.value for i in itens if i.type == "markdown"]
     assert [i.label for i in itens if i.type == "expander"] == [
-        "Ver dados do G4", "Ver o poder com efeitos negativos (Dependabot mais rápido)",
-        "Sensibilidade: e se a cauda simulada fosse mais leve?"]
+        "Ver dados do G4", "Ver o poder com efeitos negativos (Dependabot mais rápido)", "Ver dados do G7"]
 
 
 def test_texto_g4_tem_ate_quatro_frases_com_dados_reais():
@@ -177,7 +177,9 @@ def dados_erro_tipo_i():
 def test_secao_4_integra_o_g3_o_texto_e_a_tabela():
     itens = secao(abrir(), "4. Erro tipo I")
     graficos = [i for i in itens if i.type == "plotly_chart"]
-    assert len(graficos) == 1 and graficos[0].proto.theme == ""
+    # G3 e G6 (p-valores sob H₀)
+    assert len(graficos) == 2 and all(g.proto.theme == "" for g in graficos)
+    assert dashboard.TEXTO_G6 in [i.value for i in itens if i.type == "markdown"]
     assert dashboard.texto_g3(dados_erro_tipo_i()) in [i.value for i in itens if i.type == "markdown"]
     assert [i.label for i in itens if i.type == "expander"] == [
         "Ver dados do G3", "Erro tipo I e erro tipo II no nosso cenário", "E se α fosse 1% em vez de 5%?"]
