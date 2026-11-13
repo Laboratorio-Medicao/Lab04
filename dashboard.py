@@ -632,70 +632,99 @@ def renderizar() -> None:
     )
     st.divider()
 
-    # --- Linha 1: G1 (dados reais × simulados) — linha inteira ---
-    try:
-        parametros = carregar_parametros()
-        amostras = amostras_g1(pd.read_csv(RAIZ / "data" / "dados_reais.csv"), parametros)
-        fig = figura_g1(amostras)
-        fig.update_layout(height=380, margin={"t": 55, "b": 150, "l": 60, "r": 20},
-                          legend={"orientation": "h", "y": -0.32})
-        st.plotly_chart(fig, theme=None, width="stretch")
-    except (ValueError, OSError) as erro:
-        st.error(f"G1: {erro}")
+    aba_visual, aba_relatorio = st.tabs(["Visão geral", "Relatório"])
 
-    # --- Linha 2: G3 (erro tipo I) | métricas G5 ---
-    c_g3, c_metricas = st.columns([3, 2])
-    with c_g3:
+    with aba_visual:
+        # --- Linha 1: G1 — legenda à direita para não colidir com eixo X ---
         try:
-            g3 = dados_g3(pd.read_csv(RAIZ / "data" / "simulacao_q1_resumo.csv"),
-                          pd.read_csv(RAIZ / "data" / "simulacao_q3_comparacao.csv"))
-            fig = figura_g3(g3)
-            fig.update_layout(height=360, margin={"t": 50, "b": 100, "l": 60, "r": 20})
+            parametros = carregar_parametros()
+            amostras = amostras_g1(pd.read_csv(RAIZ / "data" / "dados_reais.csv"), parametros)
+            fig = figura_g1(amostras)
+            fig.update_layout(
+                height=400,
+                margin={"t": 55, "b": 55, "l": 60, "r": 200},
+                legend={"orientation": "v", "x": 1.01, "xanchor": "left",
+                        "y": 0.5, "yanchor": "middle"},
+            )
             st.plotly_chart(fig, theme=None, width="stretch")
         except (ValueError, OSError) as erro:
-            st.error(f"G3: {erro}")
-    with c_metricas:
+            st.error(f"G1: {erro}")
+
+        # --- Linha 2: G3 | métricas G5 ---
+        c_g3, c_metricas = st.columns([3, 2])
+        with c_g3:
+            try:
+                g3 = dados_g3(pd.read_csv(RAIZ / "data" / "simulacao_q1_resumo.csv"),
+                              pd.read_csv(RAIZ / "data" / "simulacao_q3_comparacao.csv"))
+                fig = figura_g3(g3)
+                fig.update_layout(
+                    height=380,
+                    margin={"t": 55, "b": 90, "l": 60, "r": 20},
+                    legend={"orientation": "h", "y": -0.22},
+                )
+                st.plotly_chart(fig, theme=None, width="stretch")
+            except (ValueError, OSError) as erro:
+                st.error(f"G3: {erro}")
+        with c_metricas:
+            try:
+                res = resultado_g5(pd.read_csv(RAIZ / "data" / "dados_reais.csv"))
+                st.markdown("**Dados reais** · pallets/flask")
+                mc1, mc2 = st.columns(2)
+                mc1.metric("t de Welch", f"t = {_num(res.welch.estatistica)}",
+                           delta=f"p {formatar_p(res.welch.p_valor)}", delta_color="off")
+                mc2.metric("Mann-Whitney U", f"U = {_num(res.mann_whitney.estatistica, 1)}",
+                           delta=f"p = {formatar_p(res.mann_whitney.p_valor)}", delta_color="off")
+                mc1.metric("Cohen's d", _num(res.welch.tamanho_efeito),
+                           delta=_magnitude(res.welch.tamanho_efeito, (0.2, 0.5, 0.8)), delta_color="off")
+                mc2.metric("r (Mann-Whitney)", _num(res.mann_whitney.tamanho_efeito, 3),
+                           delta=_magnitude(res.mann_whitney.tamanho_efeito, (0.1, 0.3, 0.5)), delta_color="off")
+            except (ValueError, OSError) as erro:
+                st.error(f"G5: {erro}")
+
+        # --- Linha 3: G2 — linha inteira, margem superior ampla para o subtítulo ---
         try:
-            res = resultado_g5(pd.read_csv(RAIZ / "data" / "dados_reais.csv"))
-            st.markdown("**Dados reais** · pallets/flask")
-            mc1, mc2 = st.columns(2)
-            mc1.metric("t de Welch", f"t = {_num(res.welch.estatistica)}",
-                       delta=f"p {formatar_p(res.welch.p_valor)}", delta_color="off")
-            mc2.metric("Mann-Whitney U", f"U = {_num(res.mann_whitney.estatistica, 1)}",
-                       delta=f"p = {formatar_p(res.mann_whitney.p_valor)}", delta_color="off")
-            mc1.metric("Cohen's d", _num(res.welch.tamanho_efeito),
-                       delta=_magnitude(res.welch.tamanho_efeito, (0.2, 0.5, 0.8)), delta_color="off")
-            mc2.metric("r (Mann-Whitney)", _num(res.mann_whitney.tamanho_efeito, 3),
-                       delta=_magnitude(res.mann_whitney.tamanho_efeito, (0.1, 0.3, 0.5)), delta_color="off")
+            estatisticas, exemplo = dados_g2()
+            fig = figura_g2(estatisticas, exemplo)
+            fig.update_layout(
+                height=480,
+                margin={"t": 140, "b": 100, "l": 60, "r": 20},
+                legend={"orientation": "v", "x": 1.01, "xanchor": "left",
+                        "y": 0.5, "yanchor": "middle"},
+            )
+            st.plotly_chart(fig, theme=None, width="stretch")
+        except Exception as erro:
+            st.error(f"G2: {erro}")
+
+        # --- Linha 4: G4 com slider — linha inteira ---
+        try:
+            dados_poder = dados_g4(pd.read_csv(RAIZ / "data" / "simulacao_q2_poder.csv"),
+                                   pd.read_csv(RAIZ / "data" / "simulacao_q3_poder.csv"))
+            ds = sorted(float(d) for d in dados_poder["d"].unique())
+            col_slider, _ = st.columns([2, 5])
+            d_sel = col_slider.select_slider(
+                "d (tamanho do efeito)",
+                options=ds, value=ds[len(ds) // 2],
+                format_func=lambda x: f"d = {x:.1f}",
+            )
+            fig = figura_g4(dados_poder)
+            fig.update_layout(
+                height=380,
+                margin={"t": 55, "b": 90, "l": 60, "r": 20},
+                legend={"orientation": "h", "y": -0.22},
+            )
+            fig.add_vline(x=d_sel, line_dash="dash", line_color="#a0b4ff", line_width=1.5)
+            st.plotly_chart(fig, theme=None, width="stretch")
         except (ValueError, OSError) as erro:
-            st.error(f"G5: {erro}")
+            st.error(f"G4: {erro}")
 
-    # --- Linha 3: G2 (distribuição sob H₀) — linha inteira ---
-    try:
-        estatisticas, exemplo = dados_g2()
-        fig = figura_g2(estatisticas, exemplo)
-        fig.update_layout(height=440, margin={"t": 130, "b": 110, "l": 60, "r": 20})
-        st.plotly_chart(fig, theme=None, width="stretch")
-    except Exception as erro:
-        st.error(f"G2: {erro}")
-
-    # --- Linha 4: G4 (curvas de poder) com slider — linha inteira ---
-    try:
-        dados_poder = dados_g4(pd.read_csv(RAIZ / "data" / "simulacao_q2_poder.csv"),
-                               pd.read_csv(RAIZ / "data" / "simulacao_q3_poder.csv"))
-        ds = sorted(float(d) for d in dados_poder["d"].unique())
-        col_slider, _ = st.columns([2, 5])
-        d_sel = col_slider.select_slider(
-            "Tamanho do efeito d",
-            options=ds, value=ds[len(ds) // 2],
-            format_func=lambda x: f"d = {x:.1f}",
-        )
-        fig = figura_g4(dados_poder)
-        fig.update_layout(height=360, margin={"t": 55, "b": 100, "l": 60, "r": 20})
-        fig.add_vline(x=d_sel, line_dash="dash", line_color="#a0b4ff", line_width=1.5)
-        st.plotly_chart(fig, theme=None, width="stretch")
-    except (ValueError, OSError) as erro:
-        st.error(f"G4: {erro}")
+    with aba_relatorio:
+        secao_1()
+        secao_2()
+        secao_3()
+        secao_4()
+        secao_5()
+        secao_6()
+        secao_7()
 
 
 def main() -> None:
